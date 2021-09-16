@@ -8,53 +8,8 @@ from types import SimpleNamespace
 
 
 import log
+import config
 from stash_interface import StashInterface
-
-config = SimpleNamespace()
-
-############################################################################
-############################# CONFIG HERE ##################################
-############################################################################
-
-# Create missing performers/tags/studios
-# Default: False (Prevent Stash from getting flooded with weird values)
-config.create_missing_performers = False
-config.create_missing_tags = True
-config.create_missing_studios = True
-config.create_missing_movies = True
-
-# url scrape config
-config.bulk_url_scrape_scenes = True
-config.bulk_url_scrape_galleries = True
-config.bulk_url_scrape_movies = True
-config.bulk_url_scrape_performers = False
-
-# fragment scrape config
-config.fragment_scrape_scenes = True
-config.fragment_scrape_galleries = True
-config.fragment_scrape_movies = True
-config.fragment_scrape_performers = False
-
-# stashbox scrape config
-config.stashbox_target = "stashdb.org"
-
-# Delay between web requests
-# Default: 5
-config.delay = 5
-
-# Name of the tag, that will be used for selecting scenes for bulk url scraping
-config.bulk_url_control_tag = "blk_scrape_url"
-
-# stash box control tag
-config.bulk_stash_box_control_tag = "blk_scrape_stashbox"
-
-# Prefix of all fragment scraper tags
-config.scrape_with_prefix = "blk_scrape_"
-
-
-############################################################################
-############################################################################
-
 
 def main():
 	json_input = json.loads(sys.stdin.read())

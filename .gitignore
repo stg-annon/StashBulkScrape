@@ -1,5 +1,7 @@
 # testing script
 test.py
+# customised config 
+config.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
