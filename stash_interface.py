@@ -18,13 +18,16 @@ class StashInterface:
     cookies = {}
 
     def __init__(self, conn, fragments={}):
-        self.port = conn['Port']
-        scheme = conn['Scheme']
+        self.port = conn['Port'] if conn.get('Port') else '9999'
+        scheme = conn['Scheme'] if conn.get('Scheme') else 'http'
 
         # Session cookie for authentication
-        self.cookies = {
-            'session': conn['SessionCookie']['Value']
-        }
+
+        self.cookies = {}
+        if conn.get('SessionCookie'):
+            self.cookies.update({
+                'session': conn['SessionCookie']['Value']
+            })
 
         domain = conn['Domain'] if conn.get('Domain') else 'localhost'
 
