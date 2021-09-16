@@ -226,11 +226,20 @@ class StashInterface:
 
         performers = self.find_performers(q=name)
 
+        performer_matches = []
+
         for p in performers:
-            if p.name.lower() == name.lower():
-                return p
-            if p.aliases and p.name.lower() in p.aliases.lower():
-                return p
+            if re.match(name, p.name, re.IGNORECASE):
+                performer_matches.append(p)
+            if p.aliases and re.search(name, p.aliases, re.IGNORECASE):
+                performer_matches.append(p)
+
+        # none if multuple results from a one word name
+        if len(performer_matches) > 1 and name.count(' ') == 0:
+            return None
+        elif len(performer_matches) > 0:
+            return performer_matches[0] 
+
 
         if create_missing:
             log.info(f'Create missing performer: "{name}"')
