@@ -417,6 +417,10 @@ class ScrapeController:
 			# Update status bar
 			log.progress(i/total)
 
+			if not item:
+				log.debug(f'{scrape_type} of type {type(item)} could not be used ')
+				continue
+
 			if item.get('url') is None or item.get('url') == "":
 				log.info(f"{scrape_type} {item.get('id')} is missing url")
 				continue
