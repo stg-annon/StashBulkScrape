@@ -614,8 +614,8 @@ class StashInterface:
 
     # Fragment Scrape
     def run_scene_scraper(self, scraper_id, scene):
-        query = """query ScrapeScene($scraper_id: ID!, $scene: SceneUpdateInput!) {
-           scrapeScene(scraper_id: $scraper_id, scene: $scene) {
+        query = """query ScrapeSingleScene($scraper_id: ID!, $scene: SceneUpdateInput!) {
+           scrapeSingleScene(scraper_id: $scraper_id, scene: $scene) {
               ...scrapedScene
             }
           }
@@ -638,7 +638,7 @@ class StashInterface:
             }
         }
         result = self.__callGraphQL(query, variables)
-        return result["scrapeScene"]
+        return result["scrapeSingleScene"]
     def run_gallery_scraper(self, gallery, scraper):
         
         query = """query ScrapeGallery($scraper_id: ID!, $gallery: GalleryUpdateInput!) {
