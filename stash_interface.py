@@ -755,18 +755,23 @@ stash_gql_fragments = {
             height
             framerate
             bitrate
+            __typename
           }
           studio{
             ...scrapedStudio
+            __typename
           }
           tags{
             ...scrapedTag
+            __typename
           }
           performers{
             ...scrapedPerformer
+            __typename
           }
           movies{
             ...scrapedMovie
+            __typename
           }
           remote_site_id
           duration
@@ -774,6 +779,7 @@ stash_gql_fragments = {
             algorithm
             hash
             duration
+            __typename
           }
           __typename
         }
