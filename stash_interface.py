@@ -576,22 +576,25 @@ class StashInterface:
     # Stash Box
     def stashbox_scene_scraper(self, scene_ids, stashbox_index=0):
         query = """
-            query QueryStashBoxScene($input: StashBoxSceneQueryInput!) {
-                queryStashBoxScene(input: $input) {
+            query ScrapeMultiScenes($source: ScraperSourceInput!, $input: ScrapeMultiScenesInput!) {
+                scrapeMultiScenes(source: $source, input: $input) {
                     ...scrapedScene
+                    __typename
                 }
             }
         """
         variables = {
+            "source": {
+                "stash_box_index": stashbox_index
+            },
             "input": {
                 "scene_ids": scene_ids,
-                "stash_box_index": stashbox_index
             }
         }
 
         result = self.__callGraphQL(query, variables)
 
-        return result["queryStashBoxScene"]
+        return result["scrapeMultiScenes"]
 
     def stashbox_submit_scene_fingerprints(self, scene_ids, stashbox_index=0):
         query = """
