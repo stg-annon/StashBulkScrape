@@ -334,7 +334,7 @@ class ScrapeController:
 				continue
 
 			# No data has been found for this scene
-			if not any(scraped_data.values()):
+			if not any(scraped_data.to_dict().values()):
 				log.info(f"Could not get data for {scrape_type} {item.get('id')}")
 				continue
 
