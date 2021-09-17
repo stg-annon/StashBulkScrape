@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import log
 import config
+import utils
 from stash_interface import StashInterface
 
 def main():
@@ -528,6 +529,7 @@ class ScrapeController:
 		scene_tag_ids = [t.id for t in scene.tags]
 		update_data['tag_ids'] = self.__merge_tags(scene_tag_ids, update_data.get('tag_ids'))
 
+		update_data = utils.clean_dict(update_data)
 		self.client.update_scene(update_data)
 
 	def __update_scenes_with_stashbox_data(self, scenes, scraped_data, stashbox):
@@ -704,6 +706,7 @@ class ScrapeController:
 		gallery_tag_ids = [t.id for t in gallery.tags]
 		update_data['tag_ids'] = self.__merge_tags(gallery_tag_ids, update_data.get('tag_ids'))
 
+		update_data = utils.clean_dict(update_data)
 		self.client.update_gallery(update_data)
 
 	def __scrape_movies_with_url(self, movies):
