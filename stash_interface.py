@@ -612,10 +612,10 @@ class StashInterface:
         result = self.__callGraphQL(query, variables)
         return result['submitStashBoxFingerprints']
 
-    # Fragment Scrape
-    def run_scene_scraper(self, scraper_id, scene):
-        query = """query ScrapeSingleScene($scraper_id: ID!, $scene: SceneUpdateInput!) {
-           scrapeSingleScene(scraper_id: $scraper_id, scene: $scene) {
+
+    def depracated_scrape_scene(self, scraper_id, scene):
+        query = """query ScrapeScene($scraper_id: ID!, $scene: SceneUpdateInput!) {
+           scrapeScene(scraper_id: $scraper_id, scene: $scene) {
               ...scrapedScene
             }
           }
