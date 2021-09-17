@@ -409,7 +409,7 @@ class ScrapeController:
 			"scenes",
 			scraper_id,
 			scenes,
-			self.client.depracated_scrape_scene,
+			self.client.scrape_single_scene,
 			self.__update_scene_with_scrape_data
 		)
 	def __scrape_scenes_with_url(self, scenes):

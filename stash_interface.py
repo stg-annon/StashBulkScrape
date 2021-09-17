@@ -639,6 +639,38 @@ class StashInterface:
         }
         result = self.__callGraphQL(query, variables)
         return result["scrapeScene"]
+
+    def scrape_single_scene(self, scraper_id, scene):
+        query = """query ScrapeSingleScene($source: ScraperSourceInput!, $input: ScrapeSingleSceneInput!) {
+            scrapeSingleScene(source: $source, input: $input) {
+              ...scrapedScene
+            }
+          }
+        """
+        
+        variables = {
+            "source": {
+                "scraper_id": scraper_id
+            },
+            "input": {
+                "query": None,
+                "scene_id": scene["id"],
+                "scene_input": {
+                    "title": scene["title"],
+                    "details": scene["details"],
+                    "url": scene["url"],
+                    "date": scene["date"],
+                    "remote_site_id": None
+                }
+            }
+        }
+        result = self.__callGraphQL(query, variables)
+        scraped_scene_list = result["scrapeSingleScene"]
+        if len(scraped_scene_list) == 0:
+            return None
+        else:
+            return result["scrapeSingleScene"][0]
+            
     def run_gallery_scraper(self, gallery, scraper):
         
         query = """query ScrapeGallery($scraper_id: ID!, $gallery: GalleryUpdateInput!) {
