@@ -316,11 +316,6 @@ class ScrapeController:
 		return control_ids
 
 	def __scrape_with_fragment(self, scrape_type, scraper_id, items, __scrape, __update):
-		last_request = -1
-		if self.delay > 0:
-			# Initialize last request with current time + delay time
-			last_request = time.time() + self.delay
-
 		# Number of scraped items
 		count = 0
 		total = len(items)
@@ -355,11 +350,6 @@ class ScrapeController:
 		return count
 
 	def __scrape_with_url(self, scrape_type, items, __scrape, __update):
-		last_request = -1
-		if self.delay > 0:
-			# Initialize last request with current time + delay time
-			last_request = time.time() + self.delay
-
 		working_scrapers = set()
 		missing_scrapers = set()
 
