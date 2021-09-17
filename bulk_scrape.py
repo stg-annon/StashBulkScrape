@@ -229,9 +229,6 @@ class ScrapeController:
 
 		return None
 	def bulk_stashbox_scrape(self):
-
-		submit_fingerprints = True
-
 		stashbox = None
 		for i, sbox in enumerate(self.client.list_stashboxes()):
 			if config.stashbox_target in sbox.endpoint:
@@ -262,7 +259,7 @@ class ScrapeController:
 
 		log.info(f'Scraped {len(updated_scene_ids)} scenes from stashbox')
 
-		if len(updated_scene_ids) > 0 and submit_fingerprints:
+		if len(updated_scene_ids) > 0 and config.stashbox_submit_fingerprints:
 			log.info(f'Submitting scene fingerprints to stashbox')
 			success = self.client.stashbox_submit_scene_fingerprints(updated_scene_ids, stashbox_index=stashbox.index)
 			if success:
