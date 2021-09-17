@@ -638,7 +638,7 @@ class StashInterface:
             }
         }
         result = self.__callGraphQL(query, variables)
-        return result["scrapeSingleScene"]
+        return result["scrapeScene"]
     def run_gallery_scraper(self, gallery, scraper):
         
         query = """query ScrapeGallery($scraper_id: ID!, $gallery: GalleryUpdateInput!) {
