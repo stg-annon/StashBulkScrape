@@ -485,14 +485,30 @@ class ScrapeController:
 					movie_data = {
 						'name': movie.name
 					}
-					for attr in ['url', 'synopsis', 'date', 'aliases']:
+
+					common_attr = [
+						'aliases',
+						'duration',
+						'date',
+						'director',
+						'url',
+						'synopsis',
+						'front_image',
+						'back_image'
+					]
+
+					for attr in common_attr:
 						if movie[attr]:
 							movie_data[attr] = movie[attr]
+							
+					if update_data['studio_id']:
+						movie_data['studio_id'] = update_data['studio_id']
 
 					try:
 						movie_ids.append( {'movie_id':self.client.create_movie(movie_data), 'scene_index':None} )
 					except Exception as e:
-						log.error('update error')
+						log.error(f'movie update error')
+						log.error(str(e))
 
 			if len(movie_ids) > 0:
 				update_data['movies'] = movie_ids
