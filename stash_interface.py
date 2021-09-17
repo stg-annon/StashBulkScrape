@@ -457,21 +457,22 @@ class StashInterface:
 
     def create_scene_marker(self, seconds, scene_id, primary_tag_id, title="", tag_ids=[]):
         query = """
-            mutation SceneMarkerCreate($title: String!, $seconds: Float!, $scene_id: ID!, $primary_tag_id: ID!, $tag_ids: [ID!] = []) {
-              sceneMarkerCreate(
-                input: {title: $title, seconds: $seconds, scene_id: $scene_id, primary_tag_id: $primary_tag_id, tag_ids: $tag_ids}
-              ) {
+            mutation SceneMarkerCreate($input: SceneMarkerCreateInput!) {
+              sceneMarkerCreate(input: $input) {
                 id
                 __typename
               }
             }
         """
+        
         variables = {
-          "tag_ids": tag_ids,
-          "title": title,
-          "seconds": seconds,
-          "scene_id": scene_id,
-          "primary_tag_id": primary_tag_id
+            "input": {
+                "tag_ids": tag_ids,
+                "title": title,
+                "seconds": seconds,
+                "scene_id": scene_id,
+                "primary_tag_id": primary_tag_id
+            }
         }
         
         result = self.__callGraphQL(query, variables)
