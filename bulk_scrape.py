@@ -753,9 +753,10 @@ class ScrapeController:
 
 		self.client.update_movie(movie_update_input)
 
-	def __scrape_performers_with_fragment(self, performers):
+	def __scrape_performers_with_fragment(self, performers, scraper_id):
 		return self.__scrape_with_fragment(
 			"performer",
+			scraper_id,
 			performers,
 			self.client.run_performer_scraper,
 			self.__update_performer_with_scrape_data
