@@ -82,6 +82,7 @@ class ScrapeController:
 					time.sleep(self.delay - (time_now - time_last) + 1)
 			self.last_wait_time = time.time()
 
+	# adds control tags to stash
 	def add_tags(self):
 		tags = self.list_all_control_tags()
 		for tag_name in tags:
@@ -91,6 +92,8 @@ class ScrapeController:
 				log.info(f"adding tag {tag_name}")
 			else:
 				log.debug(f"tag exists, {tag_name}")
+
+	# Removes control tags from stash
 	def remove_tags(self):
 		tags = self.list_all_control_tags()
 		for tag_name in tags:
@@ -101,8 +104,8 @@ class ScrapeController:
 			log.info(f"Destroying tag {tag_name}")
 			self.client.destroy_tag(tag_id)
 
+	# Scrapes Items enabled in config by url scraper
 	def bulk_url_scrape(self):
-
 		log.info("Performing Bulk URL Scrape")
 		log.info("Progress bar will reset for each item type (scene, movie, ect.)")
 
@@ -704,7 +707,7 @@ class ScrapeController:
 		# 	ScrapedMovie.duration: String (HH:MM:SS) => MovieUpdateInput.duration: Int (Total Seconds)
 		# 	ScrapedMovie.studio: {ScrapedMovieStudio} => MovieUpdateInput.studio_id: ID
 
-		update_data = {
+		movie_update_input = {
 			'id': movie.id
 		}
 		common_attrabutes = [
@@ -720,9 +723,9 @@ class ScrapeController:
 		]
 		for attr in common_attrabutes:
 			if scraped_data[attr]:
-				update_data[attr] = scraped_data[attr]
+				movie_update_input[attr] = scraped_data[attr]
 
-		# here because durration value from scraped movie is string where update preferrs an int need to cast to and int (seconds)
+		# here because durration value from scraped movie is string where update preferrs an int need to cast to an int (seconds)
 		if scraped_data.duration:
 			if scraped_data.duration.count(':') == 0:
 				scraped_data.duration = f'00:00:{scraped_data.duration}'
@@ -730,12 +733,12 @@ class ScrapeController:
 				scraped_data.duration = f'00:{scraped_data.duration}'
 			h,m,s = scraped_data.duration.split(':')
 			durr = datetime.timedelta(hours=int(h),minutes=int(m),seconds=int(s)).total_seconds()
-			update_data['duration'] = int(durr)
+			movie_update_input['duration'] = int(durr)
 
-		if scraped_data.studio:
-			update_data['studio_id'] = scraped_data.studio.id
+		if scraped_data.studio.stored_id:
+			movie_update_input['studio_id'] = scraped_data.studio.stored_id
 
-		self.client.update_movie(update_data)
+		self.client.update_movie(movie_update_input)
 
 	def __scrape_performers_with_fragment(self, performers):
 		return self.__scrape_with_fragment(
