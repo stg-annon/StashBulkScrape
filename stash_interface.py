@@ -713,6 +713,8 @@ class StashInterface:
             }
         }
         result = self.__callGraphQL(query, variables)
+        if not result:
+            return None
         scraped_scene_list = result["scrapeSingleScene"]
         if len(scraped_scene_list) == 0:
             return None
