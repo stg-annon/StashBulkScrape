@@ -980,13 +980,7 @@ stash_gql_fragments = {
             ...stashPerformer
           }
           studio{
-            id
-            name
-            url
-            stash_ids{
-                endpoint
-                stash_id
-            }
+            ...stashStudio
           }
           stash_ids{
             endpoint
@@ -1105,6 +1099,20 @@ stash_gql_fragments = {
             image_path
             scene_count
             __typename
+        }
+    """,
+    "stashStudio":"""
+        fragment stashStudio on Studio {
+            id
+            name
+            url
+            aliases
+            rating
+            details
+            stash_ids{
+                endpoint
+                stash_id
+            }
         }
     """
 }
