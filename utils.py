@@ -1,6 +1,7 @@
 # Capitalize each word in a string
 def caps_string(string, delim=" "):
-	return delim.join(x.capitalize() for x in string.split(delim))
+  string = string.strip()
+  return delim.join(x.capitalize() for x in string.split(delim))
 
 
 def clean_dict(to_clean):
