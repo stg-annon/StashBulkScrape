@@ -24,13 +24,14 @@ class ScrapeParser:
   def get_studio_id(self, studio):
     if studio.stored_id:
       return studio.stored_id
-    elif config.create_missing_studios:
-      studio = {
-        'name': utils.caps_string(studio.name),
-        'url': '{uri.scheme}://{uri.netloc}'.format(uri=urlparse(studio.url))
-      }
-      log.info(f'Creating missing studio {studio.get("name")}')
-      return self.client.create_studio(studio)
+
+    studio.name = utils.caps_string(studio.name)
+    if studio.url:
+      studio.url = '{uri.scheme}://{uri.netloc}'.format(uri=urlparse(studio.url))
+
+    stash_studio = self.client.find_studio(studio, create_missing=config.create_missing_studios)
+    if stash_studio:
+      return stash_studio.id
 
   def get_tag_ids(self, tags):
     return self.__multi_item_list(self.get_tag_id, tags)
