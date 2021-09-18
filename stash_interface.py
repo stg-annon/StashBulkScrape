@@ -310,7 +310,7 @@ class StashInterface:
         variables = {'input': movie_data}
 
         result = self.__callGraphQL(query, variables)
-        return result['movieUpdate']['id']
+        return result['movieUpdate']
 
 
     def create_studio(self, studio_data):
