@@ -50,18 +50,12 @@ class ScrapeParser:
     elif performer.name:
       log.debug(f'Stash could not match {performer.name} doing custom match')
       # scraper could not match performer, try re-matching or create if enabled
-      performer.name = performer.name.strip()
       performer.name = utils.caps_string(performer.name)
       
-      stash_performer = self.client.find_performer( {'name': performer.name } )
+      stash_performer = self.client.find_performer( self.get_performer_input(performer), create_missing=config.create_missing_performers )
       if stash_performer and stash_performer.get("id"):
-        log.debug(f'Custom match found performer')
         return stash_performer.id
 
-      if config.create_missing_performers:
-        stash_performer = self.client.create_performer( self.get_performer_input(performer) )
-        if stash_performer and stash_performer.get("id"):
-          return stash_performer.id
   def get_performer_input(self, performer):
         # Expecting to cast ScrapedPerformer to PerformerCreate/UpdateInput 
         # NOTE
