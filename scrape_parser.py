@@ -113,8 +113,6 @@ class ScrapeParser:
       try:
         stash_movie = self.client.create_movie(self.get_movie_input(movie))
         return {'movie_id':stash_movie.id, 'scene_index':None}
-        if stash_movie and stash_movie.get("id"):
-          return {'movie_id':stash_movie.id, 'scene_index':None}
       except Exception as e:
         raise Exception(f'Movie create error {e}')
   def get_movie_input(self, movie):
