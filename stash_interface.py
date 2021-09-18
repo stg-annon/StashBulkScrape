@@ -312,6 +312,53 @@ class StashInterface:
         result = self.__callGraphQL(query, variables)
         return result['movieUpdate']
 
+    def find_studios(self, q="", f={}):
+        query =  """
+            query FindStudios($filter: FindFilterType, $studio_filter: StudioFilterType) {
+                findStudios(filter: $filter, studio_filter: $studio_filter) {
+                    count
+                    studios {
+                        ...stashStudio
+                    }
+                }
+            }
+        """
+
+        variables = {
+            "filter": {
+                "q": q,
+                "per_page": -1,
+                "sort": "name",
+                "direction": "ASC"
+            },
+            "studio_filter": f
+        }
+
+        result = self.__callGraphQL(query, variables)
+        return result['findStudios']['studios']
+    def find_studio(self, studio, create_missing=False):
+        if not studio.get("name"):
+            return None
+
+        name = studio["name"]
+        stash_studios = self.find_studios(q=name)
+        studio_matches = []
+
+        for s in stash_studios:
+            if re.match(name, s.name, re.IGNORECASE):
+                studio_matches.append(s)
+            if s.aliases and re.search(name, s.aliases, re.IGNORECASE):
+                studio_matches.append(s)
+
+        # none if multuple results from a one word name
+        if len(studio_matches) > 1 and name.count(' ') == 0:
+            return None
+        elif len(studio_matches) > 0:
+            return studio_matches[0] 
+
+        if create_missing:
+            log.info(f'Create missing studio: "{name}"')
+            return self.create_studio(studio)
 
     def create_studio(self, studio_data):
         query = """
