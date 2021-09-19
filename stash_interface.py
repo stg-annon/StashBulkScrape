@@ -86,6 +86,20 @@ class StashInterface:
                     response.status_code, response.content, query, variables)
             )
 
+    def __match_alias_item(self, search, items):
+        item_matches = {}
+        for item in items:
+            if re.match(rf'{search}$', item.name, re.IGNORECASE):
+                log.debug(f'matched "{search}" to "{item.name}" ({item.id}) using primary name')
+                item_matches[item.id] = item
+            if not item.aliases:
+                continue
+            for alias in item.aliases:
+                if re.match(rf'{search}$', alias.strip(), re.IGNORECASE):
+                    log.debug(f'matched "{search}" to "{alias}" ({item.id}) using alias')
+                    item_matches[item.id] = item
+        return list(item_matches.values())
+
     def scan_for_new_files(self):
         try:
             query = """
@@ -163,6 +177,26 @@ class StashInterface:
         
         result = self.__callGraphQL(query, variables)
         return result["findTags"]["tags"]
+    def find_tag(self, tag, create_missing=False):
+        if not tag.get('name'):
+            return
+        
+        name = tag.get('name')
+
+        stash_tags = self.find_tags(q=name)
+        tag_matches = self.__match_alias_item(name, stash_tags)
+
+        # none if multuple results from a one word name
+        if len(tag_matches) > 1 and name.count(' ') == 0:
+            return None
+        elif len(tag_matches) > 0:
+            return tag_matches[0]
+
+        if create_missing:
+            log.info(f'Create missing tag: {name}')
+            self.create_tag(tag)
+
+
     def create_tag(self, tag):
         query = """
             mutation tagCreate($input:TagCreateInput!) {
@@ -226,13 +260,19 @@ class StashInterface:
 
         performers = self.find_performers(q=name)
 
-        performer_matches = []
-
+    
         for p in performers:
-            if re.match(name, p.name, re.IGNORECASE):
-                performer_matches.append(p)
-            if p.aliases and re.search(name, p.aliases, re.IGNORECASE):
-                performer_matches.append(p)
+            if not p.aliases:
+                continue
+            alias_delim = re.search(r'(\/|\n|,)', p.aliases)
+            if alias_delim:
+                p.aliases = p.aliases.split(alias_delim.group(1))
+            elif len(p.aliases) > 0:
+                p.aliases = [p.aliases]
+            else:
+                log.debug(f'Could not determine delim for aliases "{p.aliases}"')
+
+        performer_matches = self.__match_alias_item(name, performers)
 
         # none if multuple results from a one word name
         if len(performer_matches) > 1 and name.count(' ') == 0:
@@ -342,13 +382,7 @@ class StashInterface:
 
         name = studio["name"]
         stash_studios = self.find_studios(q=name)
-        studio_matches = []
-
-        for s in stash_studios:
-            if re.match(name, s.name, re.IGNORECASE):
-                studio_matches.append(s)
-            if s.aliases and re.search(name, s.aliases, re.IGNORECASE):
-                studio_matches.append(s)
+        studio_matches = self.__match_alias_item(name, stash_studios)
 
         # none if multuple results from a one word name
         if len(studio_matches) > 1 and name.count(' ') == 0:

@@ -38,10 +38,9 @@ class ScrapeParser:
   def get_tag_id(self, tag):
     if tag.stored_id:
       return tag.stored_id
-    elif config.create_missing_tags and tag.name:
+    elif tag.name:
       tag_name = utils.caps_string(tag.name)
-      log.info(f'Create missing tag: {tag_name}')
-      return self.client.create_tag({'name':tag_name})
+      return self.client.find_tag({'name':tag_name}, create_missing=config.create_missing_tags)
       
   def get_performer_ids(self, performers):
     return self.__multi_item_list(self.get_performer_id, performers)
