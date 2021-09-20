@@ -1,6 +1,6 @@
 name: Bulk Scrape
 description: This plugins combines two previous pluigns, bulk_url_scraper and scrape_with and adds functionality for scraping DVD/Movies as well
-version: 1.2
+version: 1.5
 url: https://github.com/stg-annon/StashBulkScrape
 exec:
   - python
