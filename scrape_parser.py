@@ -136,7 +136,7 @@ class ScrapeParser:
     movie_data.update( self.get_common_atttrs( movie, common_attr) )
     
     # here because durration value from scraped movie is string where update preferrs an int need to cast to an int (seconds)
-    if movie.duration:
+    if movie.get("duration"):
       if movie.duration.count(':') == 0:
         movie.duration = f'00:00:{movie.duration}'
       if movie.duration.count(':') == 1:
