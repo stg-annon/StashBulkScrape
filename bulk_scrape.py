@@ -613,7 +613,7 @@ class ScrapeController:
 		)
 	def __update_performer_with_scrape_data(self, performer, scraped_performer):
 		performer_update = { 'id': performer.id }
-		performer_update.update( self.parse.get_movie_input(scraped_performer) )
+		performer_update.update( self.parse.get_performer_input(scraped_performer) )
 		self.client.update_performer(performer_update)
 
 	def __merge_tags(self, old_tag_ids, new_tag_ids):
