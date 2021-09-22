@@ -753,34 +753,39 @@ class StashInterface:
         if len(scraped_scene_list) == 0:
             return None
         else:
-            return result["scrapeSingleScene"][0]
+            return scraped_scene_list[0]
             
     def run_gallery_scraper(self, gallery, scraper):
         
-        query = """query ScrapeGallery($scraper_id: ID!, $gallery: GalleryUpdateInput!) {
-           scrapeGallery(scraper_id: $scraper_id, gallery: $gallery) {
+        query = """query ScrapeSingleGallery($source: ScraperSourceInput!, $input: ScrapeSingleGalleryInput!) {
+           scrapeSingleGallery(source: $source, input: $input) {
               ...scrapedGallery
             }
           }
         """
         variables = {
-            "scraper_id": scraper,
-            "gallery": {
-                "id": gallery["id"],
-                "title": gallery["title"],
-                "url": gallery["url"],
-                "date": gallery["date"],
-                "details": gallery["details"],
-                "rating": gallery["rating"],
-                "scene_ids": [],
-                "studio_id": None,
-                "tag_ids": [],
-                "performer_ids": [],
+            "source":{
+                "scraper_id": scraper
+            },
+            "input":{
+                "gallery_id": gallery.id,
+                "gallery_input": {
+                    "title": gallery.title,
+                    "details": gallery.details,
+                    "url": gallery.url,
+                    "date": gallery.date
+                }
             }
         }
 
         result = self.__callGraphQL(query, variables)
-        return result["scrapeGallery"]
+        if not result:
+            return None
+        scraped_gallery_list = result["scrapeSingleGallery"]
+        if len(scraped_gallery_list) == 0:
+            return None
+        else:
+            return rscraped_gallery_list[0]
 
     def run_performer_scraper(self, performer, scraper):
         
