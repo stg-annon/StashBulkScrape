@@ -632,7 +632,9 @@ class ScrapeController:
 		def create_movie(movie, scraped_movie):
 			self.client.find_or_create_movie(scraped_movie, update_movie=True)
 
-		movie_urls = [ {'url':url } for url in open('movie_urls.txt', 'r').readlines()]
+		url_list = [ url for url in open('movie_urls.txt', 'r').readlines()]
+		url_list = list(set(url_list))
+		movie_urls = [ {'url':url } for url in url_list]
 		return self.__scrape_with_url(
 			"movie",
 			movie_urls,
