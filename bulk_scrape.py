@@ -40,6 +40,9 @@ def run(json_input, output):
 			scraper.bulk_fragment_scrape()
 		if mode_arg == "stashbox_scrape":
 			scraper.bulk_stashbox_scrape()
+		
+		if mode_arg == "import_movies":
+			scraper.import_movie_urls()
 
 
 	except Exception:
@@ -624,6 +627,18 @@ class ScrapeController:
 			merged_tags.update(new_tag_ids)
 		return list(merged_tags)
 
+
+	def import_movie_urls(self):
+		def create_movie(movie, scraped_movie):
+			self.client.find_or_create_movie(scraped_movie, update_movie=True)
+
+		movie_urls = [ {'url':url } for url in open('movie_urls.txt', 'r').readlines()]
+		return self.__scrape_with_url(
+			"movie",
+			movie_urls,
+			self.client.scrape_movie_url,
+			create_movie
+		)
 
 if __name__ == '__main__':
 	main()

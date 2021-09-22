@@ -27,3 +27,7 @@ tasks:
     description: run stashbox scraper on all scenes with control tag
     defaultArgs:
       mode: stashbox_scrape
+  - name: Import Movies from URL
+    description: attempt to automatically scrape all urls in the movie_urls.txt file and create them in stash
+    defaultArgs:
+      mode: import_movies
