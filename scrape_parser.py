@@ -78,7 +78,6 @@ class ScrapeParser:
           'aliases',
           'twitter',
           'instagram',
-          'image',
           'details',
           'death_date',
           'hair_color'
@@ -86,6 +85,9 @@ class ScrapeParser:
         for attr in common_attrabutes:
           if performer.get(attr):
             performer_data[attr] = performer[attr]
+
+        if performer.get("images") and len(performer.images) > 0:
+          performer_data["image"] = performer.images[0]
 
         # cast String to Int, this assumes both values are the same unit and are just diffrent types
         if performer.weight:
