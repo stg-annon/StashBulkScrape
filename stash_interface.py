@@ -309,7 +309,7 @@ class StashInterface:
         variables = {'input': performer_data}
 
         result = self.__callGraphQL(query, variables)
-        return result.get('performerUpdate').get('id')
+        return result['performerUpdate']
 
 
     def find_or_create_movie(self, movie_data, update_movie=False):
