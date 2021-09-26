@@ -756,6 +756,9 @@ class StashInterface:
             return scraped_scene_list[0]
             
     def run_gallery_scraper(self, gallery, scraper):
+
+        if not gallery.get('id'):
+            return
         
         query = """query ScrapeSingleGallery($source: ScraperSourceInput!, $input: ScrapeSingleGalleryInput!) {
            scrapeSingleGallery(source: $source, input: $input) {
@@ -785,7 +788,7 @@ class StashInterface:
         if len(scraped_gallery_list) == 0:
             return None
         else:
-            return rscraped_gallery_list[0]
+            return scraped_gallery_list[0]
 
     def run_performer_scraper(self, performer, scraper):
         
