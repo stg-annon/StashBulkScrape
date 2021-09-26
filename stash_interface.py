@@ -756,9 +756,6 @@ class StashInterface:
             return scraped_scene_list[0]
             
     def run_gallery_scraper(self, gallery, scraper):
-
-        if not gallery.get('id'):
-            return
         
         query = """query ScrapeSingleGallery($source: ScraperSourceInput!, $input: ScrapeSingleGalleryInput!) {
            scrapeSingleGallery(source: $source, input: $input) {
@@ -771,12 +768,12 @@ class StashInterface:
                 "scraper_id": scraper
             },
             "input":{
-                "gallery_id": gallery.id,
+                "gallery_id": gallery["id"],
                 "gallery_input": {
-                    "title": gallery.title,
-                    "details": gallery.details,
-                    "url": gallery.url,
-                    "date": gallery.date
+                    "title": gallery["title"],
+                    "details": gallery["details"],
+                    "url": gallery["url"],
+                    "date": gallery["date"]
                 }
             }
         }
