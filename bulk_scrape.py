@@ -604,7 +604,7 @@ class ScrapeController:
 			"performer",
 			scraper_id,
 			performers,
-			self.client.run_performer_scraper,
+			self.client.scrape_single_performer,
 			self.__update_performer_with_scrape_data
 		)
 	def __scrape_performers_with_url(self, performers):

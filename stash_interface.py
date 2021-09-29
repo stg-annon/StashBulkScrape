@@ -798,43 +798,40 @@ class StashInterface:
         else:
             return scraped_gallery_list[0]
 
-    def run_performer_scraper(self, performer, scraper):
+    def scrape_single_performer(self, scraper_id, performer):
+
+        if not isinstance(performer, dict) or not performer.get("id"):
+            log.warning('Unexpected Object passed to scrape_single_gallery')
+            log.warning(f'Type: {type(performer)}')
+            log.warning(f'{performer}')
         
-        query = """query ScrapePerformer($scraper_id: ID!, $performer: ScrapedPerformerInput!) {
-           scrapePerformer(scraper_id: $scraper_id, performer: $performer) {
+        query = """query ScrapeSinglePerformer($scraper_id: ID!, $performer: ScrapedPerformerInput!) {
+           scrapeSinglePerformer(scraper_id: $scraper_id, performer: $performer) {
               ...scrapedPerformer
             }
           }
         """
         variables = {
-            "scraper_id": scraper,
-            "performer": {
-            "name": performer["name"],
-            "gender": None,
-            "url": performer["url"],
-            "twitter": None,
-            "instagram": None,
-            "birthdate": None,
-            "ethnicity": None,
-            "country": None,
-            "eye_color": None,
-            "height": None,
-            "measurements": None,
-            "fake_tits": None,
-            "career_length": None,
-            "tattoos": None,
-            "piercings": None,
-            "aliases": None,
-            "tags": None,
-            "image": None,
-            "details": None,
-            "death_date": None,
-            "hair_color": None,
-            "weight": None,
+            "source":{
+                "scraper_id": scraper_id
+            },
+            "input":{
+                "performer_id": performer["id"],
+                "performer_input": {
+                    "name": performer["name"],
+                    "url": performer["url"]
+                }
+            }
         }
-        }
+
         result = self.__callGraphQL(query, variables)
-        return result["scrapePerformer"]
+        if not result:
+            return None
+        scraped_performer_list = result["scrapeSinglePerformer"]
+        if len(scraped_performer_list) == 0:
+            return None
+        else:
+            return scraped_performer_list[0]
 
     # URL Scrape
     def scrape_scene_url(self, url):
