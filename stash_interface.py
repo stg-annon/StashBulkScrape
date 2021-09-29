@@ -723,6 +723,12 @@ class StashInterface:
         return result["scrapeScene"]
 
     def scrape_single_scene(self, scraper_id, scene):
+        
+        if not isinstance(scene, dict) or not scene.get("id"):
+            log.warning('Unexpected Object passed to scrape_single_scene')
+            log.warning(f'Type: {type(scene)}')
+            log.warning(f'{scene}')
+
         query = """query ScrapeSingleScene($source: ScraperSourceInput!, $input: ScrapeSingleSceneInput!) {
             scrapeSingleScene(source: $source, input: $input) {
               ...scrapedScene
@@ -755,7 +761,12 @@ class StashInterface:
         else:
             return scraped_scene_list[0]
             
-    def run_gallery_scraper(self, gallery, scraper):
+    def scrape_single_gallery(self, scraper_id, gallery):
+
+        if not isinstance(gallery, dict) or not gallery.get("id"):
+            log.warning('Unexpected Object passed to scrape_single_gallery')
+            log.warning(f'Type: {type(gallery)}')
+            log.warning(f'{gallery}')
         
         query = """query ScrapeSingleGallery($source: ScraperSourceInput!, $input: ScrapeSingleGalleryInput!) {
            scrapeSingleGallery(source: $source, input: $input) {
@@ -765,7 +776,7 @@ class StashInterface:
         """
         variables = {
             "source":{
-                "scraper_id": scraper
+                "scraper_id": scraper_id
             },
             "input":{
                 "gallery_id": gallery["id"],

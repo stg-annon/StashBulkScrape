@@ -554,7 +554,7 @@ class ScrapeController:
 			"galleries",
 			scraper_id,
 			galleries,
-			self.client.run_gallery_scraper,
+			self.client.scrape_single_gallery,
 			self.__update_gallery_with_scrape_data
 		)
 	def __scrape_galleries_with_url(self, galleries):
