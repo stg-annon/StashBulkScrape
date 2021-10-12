@@ -86,7 +86,7 @@ class ScrapeParser:
           if performer.get(attr):
             performer_data[attr] = performer[attr]
 
-        if performer.image:
+        if performer.get("image"):
           performer_data["image"] = performer.image
         if performer.get("images") and len(performer.images) > 0:
           performer_data["image"] = performer.images[0]

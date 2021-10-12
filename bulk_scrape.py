@@ -617,6 +617,13 @@ class ScrapeController:
 	def __update_performer_with_scrape_data(self, performer, scraped_performer):
 		performer_update = { 'id': performer.id }
 		performer_update.update( self.parse.get_performer_input(scraped_performer) )
+
+        if scraped_performer.get("tags"):
+          performer_update["tag_ids"] = self.parse.get_tag_ids(scraped_performer.tags)
+
+		performer_tag_ids = [t.id for t in performer.tags]
+		performer_update['tag_ids'] = self.__merge_tags(performer_tag_ids, performer_update.get('tag_ids',[]))
+
 		self.client.update_performer(performer_update)
 
 	def __merge_tags(self, old_tag_ids, new_tag_ids):
