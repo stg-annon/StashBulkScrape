@@ -1,63 +1,21 @@
-import json
-from scrape_parser import ScrapeParser
-import sys
-import time
-import datetime
-import traceback
+import sys, time, json, datetime
 from urllib.parse import urlparse
 from types import SimpleNamespace
 
-
-import log
 import config
-import utils
-from stash_interface import StashInterface
+import utils.log as log
+import utils.tools as tools
+from utils.stash_types import StashItem
+from utils.stash import StashInterface, ScrapeType
 
-def main():
-	json_input = json.loads(sys.stdin.read())
-
-	output = {}
-	run(json_input, output)
-
-	out = json.dumps(output)
-	print(out + "\n")
-
-def run(json_input, output):
-	mode_arg = json_input['args']['mode']
-
-	try:
-		client = StashInterface(json_input["server_connection"])
-		scraper = ScrapeController(client)
-
-		if mode_arg == "create":
-			scraper.add_tags()
-		if mode_arg == "remove":
-			scraper.remove_tags()
-
-		if mode_arg == "url_scrape":
-			scraper.bulk_url_scrape()
-		if mode_arg == "fragment_scrape":
-			scraper.bulk_fragment_scrape()
-		if mode_arg == "stashbox_scrape":
-			scraper.bulk_stashbox_scrape()
-		
-		if mode_arg == "import_movies":
-			scraper.import_movie_urls()
-
-
-	except Exception:
-		raise
-
-	output["output"] = "ok"
-
+from scrape_parser import ScrapeParser
 
 class ScrapeController:
 
-	def __init__(self, client, create_missing_performers=False, create_missing_tags=False, create_missing_studios=False, create_missing_movies=False, delay=5):
+	def __init__(self, stash:StashInterface):
 		try:
-			self.delay = int(config.delay)
-
-			self.last_wait_time = -1
+			self.delay = float(config.EXTERNAL_WEB_REQUEST_DELAY)
+			self.last_wait_time = datetime.datetime.now()
 		except AttributeError as e:
 			log.warning(e)
 			log.warning("Using defaults for missing config values")
@@ -65,10 +23,10 @@ class ScrapeController:
 			log.warning(e)
 			log.warning("Using defaults for wrong values")
 
-		self.client = client
-		self.parse = ScrapeParser(client)
+		self.stash = stash
+		self.parse = ScrapeParser(stash)
 
-		self.client.reload_scrapers()
+		self.stash.reload_scrapers()
 
 		log.info('######## Bulk Scraper ########')
 		log.info(f'create_missing_performers: {config.create_missing_performers}')
@@ -77,24 +35,19 @@ class ScrapeController:
 		log.info(f'create_missing_movies: {config.create_missing_movies}')
 		log.info(f'delay: {self.delay}')
 		log.info('##############################')
-
-	# Waits the remaining time between the last timestamp and the configured delay in seconds
+		
 	def wait(self):
-		if self.delay:
-			time_last = int(self.last_wait_time)
-			time_now = int(time.time())
-			if time_now > time_last:
-				if time_now - time_last < self.delay:
-					time.sleep(self.delay - (time_now - time_last) + 1)
-			self.last_wait_time = time.time()
+		if (datetime.datetime.now()-self.last_wait_time) < datetime.timedelta(seconds=self.delay):
+			time.sleep(self.delay)
+			self.last_wait_time = datetime.datetime.now()
 
 	# adds control tags to stash
 	def add_tags(self):
 		tags = self.list_all_control_tags()
 		for tag_name in tags:
-			tag_id = self.client.find_tag_id(tag_name)
+			tag_id = self.stash.find_tag_id(tag_name)
 			if tag_id == None:
-				tag_id = self.client.create_tag({'name':tag_name})
+				tag_id = self.stash.create_tag({'name':tag_name})
 				log.info(f"adding tag {tag_name}")
 			else:
 				log.debug(f"tag exists, {tag_name}")
@@ -103,25 +56,26 @@ class ScrapeController:
 	def remove_tags(self):
 		tags = self.list_all_control_tags()
 		for tag_name in tags:
-			tag_id = self.client.find_tag_id(tag_name)
-			if tag_id == None:
+			tag = self.stash.find_tag(tag_name)
+			if tag == None:
 				log.debug("Tag does not exist. Nothing to remove")
 				continue
-			log.info(f"Destroying tag {tag_name}")
-			self.client.destroy_tag(tag_id)
-
+			log.info(f'Destroying tag {tag["name"]}')
+			self.stash.destroy_tag(tag["id"])
+	
 	# Scrapes Items enabled in config by url scraper
 	def bulk_url_scrape(self):
 		log.info("Performing Bulk URL Scrape")
 		log.info("Progress bar will reset for each item type (scene, movie, ect.)")
 
 		# Scrape Everything enabled in config
-		tag_id = self.client.find_tag_id(config.bulk_url_control_tag)
-		if tag_id is None:
-			sys.exit(f'Tag "{config.bulk_url_control_tag}" does not exist. Please create it via the "Create scrape tags" task')
+		tag = self.stash.find_tag(config.BULK_URL_CONTROL_TAG)
+		if tag is None:
+			sys.exit(f'Tag "{config.BULK_URL_CONTROL_TAG}" does not exist. Please create it via the "Create scrape tags" task')
+		tag_id = tag["id"]
 
-		if config.bulk_url_scrape_scenes:
-			scenes = self.client.find_scenes(f={
+		if StashItem.SCENE in config.BULK_URL:
+			scenes = self.stash.find_scenes(f={
 				"tags": {
 					"value": [tag_id],
 					"depth": 0,
@@ -133,13 +87,13 @@ class ScrapeController:
 				}
 			})
 
-			log.info(f'Found {len(scenes)} scenes with {config.bulk_url_control_tag} tag')
+			log.info(f'Found {len(scenes)} scenes with {config.BULK_URL_CONTROL_TAG} tag')
 			count = self.__scrape_scenes_with_url(scenes)
 			log.info(f'Scraped data for {count} scenes')
 			log.info('##############################')
 
-		if config.bulk_url_scrape_galleries:
-			galleries = self.client.find_galleries(f={
+		if StashItem.GALLERY in config.BULK_URL:
+			galleries = self.stash.find_galleries(f={
 				"tags": {
 					"value": [tag_id],
 					"depth": 0,
@@ -151,13 +105,13 @@ class ScrapeController:
 				}
 			})
 
-			log.info(f'Found {len(galleries)} galleries with {config.bulk_url_control_tag} tag')
+			log.info(f'Found {len(galleries)} galleries with {config.BULK_URL_CONTROL_TAG} tag')
 			count = self.__scrape_galleries_with_url(galleries)
 			log.info(f'Scraped data for {count} galleries')
 			log.info('##############################')
 
-		if config.bulk_url_scrape_performers:
-			performers = self.client.find_performers(f={
+		if StashItem.PERFORMER in config.BULK_URL:
+			performers = self.stash.find_performers(f={
 				"tags": {
 					"value": [tag_id],
 					"depth": 0,
@@ -169,13 +123,13 @@ class ScrapeController:
 				}
 			})
 
-			log.info(f'Found {len(performers)} performers with {config.bulk_url_control_tag} tag')
+			log.info(f'Found {len(performers)} performers with {config.BULK_URL_CONTROL_TAG} tag')
 			count = self.__scrape_performers_with_url(performers)
 			log.info(f'Scraped data for {count} performers')
 			log.info('##############################')
 
-		if config.bulk_url_scrape_movies:
-			movies = self.client.find_movies(f={
+		if StashItem.MOVIE in config.BULK_URL:
+			movies = self.stash.find_movies(f={
 				"is_missing": "front_image",
 				"url": {
 					"value": "",
@@ -185,58 +139,52 @@ class ScrapeController:
 			log.info(f'Found {len(movies)} movies with URLs')
 			count = self.__scrape_movies_with_url(movies)
 			log.info(f'Scraped data for {count} movies')
-
-
-
-		return None
+	# Scrapes Items enabled in config by fragment scraper
 	def bulk_fragment_scrape(self):
 		# Scrape Everything enabled in config
 
-		for scraper_id, types in self.list_all_fragment_tags().items():
+		for scraper_id, stash_items in self.list_all_fragment_tags().items():
 
-			if config.bulk_url_scrape_scenes:
-				if types.get('SCENE'):
-					tag_id = self.client.find_tag_id( types.get('SCENE') )
-					if tag_id:
-						scenes = self.client.find_scenes(f={
-							"tags": {
-								"value": [tag_id],
-								"depth": 0,
-								"modifier": "INCLUDES"
-							}
-						})
-						self.__scrape_scenes_with_fragment(scenes, scraper_id)
+			if stash_items.get(StashItem.SCENE):
+				tag = self.stash.find_tag( stash_items.get(StashItem.SCENE) )
+				if tag:
+					scenes = self.stash.find_scenes(f={
+						"tags": {
+							"value": [tag["id"]],
+							"depth": 0,
+							"modifier": "INCLUDES"
+						}
+					})
+					self.__scrape_scenes_with_fragment(scenes, scraper_id)
 
-			if config.bulk_url_scrape_galleries:
-				if types.get('GALLERY'):
-					tag_id = self.client.find_tag_id( types.get('GALLERY') )
-					if tag_id:
-						galleries = self.client.find_galleries(f={
-							"tags": {
-								"value": [tag_id],
-								"depth": 0,
-								"modifier": "INCLUDES"
-							}
-						})
-						self.__scrape_galleries_with_fragment(galleries, scraper_id)
+			if stash_items.get(StashItem.GALLERY):
+				tag = self.stash.find_tag( stash_items.get(StashItem.GALLERY) )
+				if tag:
+					galleries = self.stash.find_galleries(f={
+						"tags": {
+							"value": [tag["id"]],
+							"depth": 0,
+							"modifier": "INCLUDES"
+						}
+					})
+					self.__scrape_galleries_with_fragment(galleries, scraper_id)
 					
-			if config.bulk_url_scrape_galleries:
-				if types.get('PERFORMER'):
-					tag_id = self.client.find_tag_id( types.get('PERFORMER') )
-					if tag_id:
-						performers = self.client.find_performers(f={
-							"tags": {
-								"value": [tag_id],
-								"depth": 0,
-								"modifier": "INCLUDES"
-							}
-						})
-						self.__scrape_performers_with_fragment(performers, scraper_id)
+			if stash_items.get(StashItem.PERFORMER):
+				tag = self.stash.find_tag( stash_items.get(StashItem.PERFORMER) )
+				if tag:
+					performers = self.stash.find_performers(f={
+						"tags": {
+							"value": [tag["id"]],
+							"depth": 0,
+							"modifier": "INCLUDES"
+						}
+					})
+					self.__scrape_performers_with_fragment(performers, scraper_id)
 
 		return None
 	def bulk_stashbox_scrape(self):
 		stashbox = None
-		for i, sbox in enumerate(self.client.list_stashboxes()):
+		for i, sbox in enumerate(self.stash.list_stashboxes()):
 			if config.stashbox_target in sbox.endpoint:
 				stashbox = sbox
 				stashbox.index = i
@@ -245,8 +193,8 @@ class ScrapeController:
 			log.error(f'Could not find a stash-box config for {config.stashbox_target}')
 			return None
 
-		tag_id = self.client.find_tag_id( config.bulk_stash_box_control_tag )
-		scenes = self.client.find_scenes(f={
+		tag_id = self.stash.find_tag_id( config.BULK_STASHBOX_CONTROL_TAG )
+		scenes = self.stash.find_scenes(f={
 			"tags": {
 				"value": [tag_id],
 				"depth": 0,
@@ -256,8 +204,8 @@ class ScrapeController:
 
 		log.info(f'Scraping {len(scenes)} items from stashbox')
 
-		scene_ids = [i.get('id') for i in scenes if i.get('id')]
-		scraped_data  = self.client.stashbox_scene_scraper(scene_ids, stashbox_index=stashbox.index)
+		scene_ids = [s['id'] for s in scenes if s.get('id')]
+		scraped_data  = self.stash.stashbox_scene_scraper(scene_ids, stashbox_index=stashbox.index)
 
 		log.info(f'found {len(scraped_data)} results from stashbox')
 
@@ -267,7 +215,7 @@ class ScrapeController:
 
 		if len(updated_scene_ids) > 0 and config.stashbox_submit_fingerprints:
 			log.info(f'Submitting scene fingerprints to stashbox')
-			success = self.client.stashbox_submit_scene_fingerprints(updated_scene_ids, stashbox_index=stashbox.index)
+			success = self.stash.stashbox_submit_scene_fingerprints(updated_scene_ids, stashbox_index=stashbox.index)
 			if success:
 				log.info(f'Submission Successful')
 			else:
@@ -277,45 +225,22 @@ class ScrapeController:
 
 	def list_all_fragment_tags(self):
 		fragment_tags = {}
-
-		if config.fragment_scrape_scenes:
-			for s in self.client.list_scene_scrapers('FRAGMENT'):
+		for stash_item in config.FRAGMENT_SCRAPE:
+			for s in self.stash.list_item_scrapers(stash_item, ScrapeType.FRAGMENT):
 				if s in fragment_tags:
-					fragment_tags[s]['SCENE'] = f'{config.scrape_with_prefix}{s}'
+					fragment_tags[s][stash_item] = f'{config.SCRAPE_WITH_PREFIX}{s}'
 				else:
-					fragment_tags[s] = {'SCENE': f'{config.scrape_with_prefix}{s}'}
-
-		if config.fragment_scrape_galleries:
-			for s in self.client.list_gallery_scrapers('FRAGMENT'):
-				if s in fragment_tags:
-					fragment_tags[s]['GALLERY'] = f'{config.scrape_with_prefix}{s}'
-				else:
-					fragment_tags[s] = {'GALLERY': f'{config.scrape_with_prefix}{s}'}
-
-		if config.fragment_scrape_movies:
-			for s in self.client.list_movie_scrapers('FRAGMENT'):
-				if s in fragment_tags:
-					fragment_tags[s]['MOVIE'] = f'{config.scrape_with_prefix}{s}'
-				else:
-					fragment_tags[s] = {'MOVIE': f'{config.scrape_with_prefix}{s}'}
-
-		if config.fragment_scrape_performers:
-			for s in self.client.list_performer_scrapers('FRAGMENT'):
-				if s in fragment_tags:
-					fragment_tags[s]['PERFORMER'] = f'{config.scrape_with_prefix}{s}'
-				else:
-					fragment_tags[s] = {'PERFORMER': f'{config.scrape_with_prefix}{s}'}
-
+					fragment_tags[s] = {stash_item: f'{config.SCRAPE_WITH_PREFIX}{s}'}
 		return fragment_tags
 	def list_all_control_tags(self):
-		control_tags = [ config.bulk_url_control_tag, config.bulk_stash_box_control_tag ]
+		control_tags = [ config.BULK_URL_CONTROL_TAG, config.BULK_STASHBOX_CONTROL_TAG ]
 		for supported_types in self.list_all_fragment_tags().values():
 			control_tags.extend( supported_types.values() )
 		return control_tags
 	def get_control_tag_ids(self):
 		control_ids = list()
 		for tag_name in self.list_all_control_tags():
-			tag_id = self.client.find_tag_id(tag_name)
+			tag_id = self.stash.find_tag_id(tag_name)
 			if tag_id == None:
 				continue
 			control_ids.append(tag_id)
@@ -333,6 +258,7 @@ class ScrapeController:
 			log.progress(i/total)
 
 			self.wait()
+
 			scraped_data = __scrape(scraper_id, item)
 
 			if scraped_data is None:
@@ -354,7 +280,6 @@ class ScrapeController:
 				log.error(str(e))
 
 		return count
-
 	def __scrape_with_url(self, scrape_type, items, __scrape, __update):
 		working_scrapers = set()
 		missing_scrapers = set()
@@ -407,105 +332,102 @@ class ScrapeController:
 
 		return count
 
+	# SCENE
+	def __update_scene_with_scrape_data(self, scene, scraped_scene):
+		update_data = self.parse.scene_from_scrape(scraped_scene)
+		update_data["id"] = scene.get('id')
+
+		#TODO handle stash box ids
+		# if scraped_scene.get('stash_ids'):
+		# 	update_data['stash_ids'] = scene.get('stash_ids').extend(scraped_scene.get('stash_ids'))
+
+		# merge old tags with new tags
+		scene_tag_ids = [t["id"] for t in scene.get("tags")]
+		update_data['tag_ids'] = tools.merge_tags(scene_tag_ids, update_data.get("tag_ids", []))
+
+		self.stash.update_scene(update_data)
 	def __scrape_scenes_with_fragment(self, scenes, scraper_id):
 		return self.__scrape_with_fragment(
 			"scenes",
 			scraper_id,
 			scenes,
-			self.client.scrape_single_scene,
+			self.stash.scrape_single_scene,
 			self.__update_scene_with_scrape_data
 		)
 	def __scrape_scenes_with_url(self, scenes):
 		return self.__scrape_with_url(
 			"scene",
 			scenes,
-			self.client.scrape_scene_url,
+			self.stash.scrape_scene_url,
 			self.__update_scene_with_scrape_data
 		)
-	def __update_scene_with_scrape_data(self, scene, scraped_scene):
-		
-		update_data = {
-			'id': scene.get('id')
-		}
 
-		common_attrabutes = ['url','title','details','date']
-		update_data.update( self.parse.get_common_atttrs( scraped_scene, common_attrabutes ) )
+	# GALLERY
+	def __update_gallery_with_scrape_data(self, gallery, scraped_gallery):
 
-		if scraped_scene.get('image'):
-			update_data['cover_image'] = scraped_scene.get('image')
+		gallery_data = self.parse.gallery_from_scrape(scraped_gallery)
+		gallery_data["id"] = gallery.get('id')
 
-		if scraped_scene.tags:
-			update_data['tag_ids'] = self.parse.get_tag_ids(scraped_scene.tags)
+		gallery_tag_ids = [t.id for t in gallery.tags]
+		gallery_data['tag_ids'] = self.__merge_tags(gallery_tag_ids, gallery_data.get('tag_ids'))
 
-		if scraped_scene.performers:
-			update_data['performer_ids'] = self.parse.get_performer_ids(scraped_scene.performers)
+		self.stash.update_gallery(gallery_data)
+	def __scrape_galleries_with_fragment(self, galleries, scraper_id):
+		return self.__scrape_with_fragment(
+			"galleries",
+			scraper_id,
+			galleries,
+			self.stash.scrape_single_gallery,
+			self.__update_gallery_with_scrape_data
+		)
+	def __scrape_galleries_with_url(self, galleries):
+		return self.__scrape_with_url(
+			"gallery",
+			galleries,
+			self.stash.scrape_gallery_url,
+			self.__update_gallery_with_scrape_data
+		)
+	
+	# MOVIE
+	def __update_movie_with_scrape_data(self, movie, scraped_movie):
+		movie_update = self.parse.get_movie_input(scraped_movie)
+		movie_update["id"] = movie["id"]
+		self.stash.update_movie(movie_update)
+	def __scrape_movies_with_url(self, movies):
+		return self.__scrape_with_url(
+			"movie",
+			movies,
+			self.stash.scrape_movie_url,
+			self.__update_movie_with_scrape_data
+		)
+	
+	# PERFORMER
+	def __update_performer_with_scrape_data(self, performer, scraped_performer):
+		performer_update = { 'id': performer.id }
+		performer_update.update( self.parse.get_performer_input(scraped_performer) )
 
-		if scraped_scene.studio:
-			update_data['studio_id'] = self.parse.get_studio_id(scraped_scene.studio)
+		if scraped_performer.get("tags"):
+			performer_update["tag_ids"] = self.parse.get_tag_ids(scraped_performer.tags)
 
-		if scraped_scene.movies:
-			update_data['movies'] = self.parse.get_movie_ids(scraped_scene.movies)
+		performer_tag_ids = [t.id for t in performer.tags]
+		performer_update['tag_ids'] = self.__merge_tags(performer_tag_ids, performer_update.get('tag_ids',[]))
 
-		# handle stash box ids
-		if scraped_scene.get('stash_ids'):
-			update_data['stash_ids'] = scene.get('stash_ids').extend(scraped_scene.get('stash_ids'))
-
-		# Only accept base64 images
-		if update_data.get('cover_image') and not update_data.get('cover_image').startswith("data:image"):
-			del update_data['cover_image']
-
-		scene_tag_ids = [t.id for t in scene.tags]
-		update_data['tag_ids'] = self.__merge_tags(scene_tag_ids, update_data.get('tag_ids'))
-
-		update_data = utils.clean_dict(update_data)
-		self.client.update_scene(update_data)
-
-	def __update_scenes_with_stashbox_data(self, scenes, scraped_data, stashbox, only_stash_ids=False):
-
-		scene_update_ids = []
-		total = len(scenes)
-		for i, scene in enumerate(scenes):
-			# Update status bar
-			log.progress(i/total)
-
-			matches = self.__match_scene_with_stashbox_data(scene, scraped_data)
-
-			if len(matches) <= 0:
-				log.info(f"FAILED to find match for scene id:{scene['id']}")
-				continue
-
-			if len(matches) > 1:
-				log.info(f"Multuple result for ({scene.get('id')}) skipping")
-				continue
-
-			m = matches[0]
-
-			log.info(f'MATCHED: UID:{m.hash} DUR:{m.duration}/{m.fingerprint_count}')
-
-			if m.data.remote_site_id:
-				m.data['stash_ids'] = [{
-					'endpoint': stashbox.endpoint,
-					'stash_id': m.data.remote_site_id
-				}]
-
-			if m.data.performers:
-				for p in m.data.performers:
-					p.stash_ids = [{
-						'endpoint': stashbox.endpoint,
-						'stash_id': p.remote_site_id
-					}]
-
-			# TODO Immplament this option
-			if only_stash_ids:
-				pass
-
-			try:
-				self.__update_scene_with_scrape_data(scene, m.data)
-				scene_update_ids.append(scene.get('id'))
-			except Exception as e:
-				log.error(str(e))
-
-		return scene_update_ids
+		self.stash.update_performer(performer_update)
+	def __scrape_performers_with_fragment(self, performers, scraper_id):
+		return self.__scrape_with_fragment(
+			"performer",
+			scraper_id,
+			performers,
+			self.stash.scrape_single_performer,
+			self.__update_performer_with_scrape_data
+		)
+	def __scrape_performers_with_url(self, performers):
+		return self.__scrape_with_url(
+			"performer",
+			performers,
+			self.stash.scrape_performer_url,
+			self.__update_performer_with_scrape_data
+		)
 
 	def __match_scene_with_stashbox_data(self, scene, stashbox_data):
 		matches = []
@@ -548,106 +470,49 @@ class ScrapeController:
 				matches.append(id_match)
 
 		return matches
+	def __update_scenes_with_stashbox_data(self, scenes, scraped_data, stashbox, only_stash_ids=False):
 
-	def __scrape_galleries_with_fragment(self, galleries, scraper_id):
-		return self.__scrape_with_fragment(
-			"galleries",
-			scraper_id,
-			galleries,
-			self.client.scrape_single_gallery,
-			self.__update_gallery_with_scrape_data
-		)
-	def __scrape_galleries_with_url(self, galleries):
-		return self.__scrape_with_url(
-			"gallery",
-			galleries,
-			self.client.scrape_gallery_url,
-			self.__update_gallery_with_scrape_data
-		)
-	def __update_gallery_with_scrape_data(self, gallery, scraped_gallery):
-		update_data = {
-			'id': gallery.get('id')
-		}
+		scene_update_ids = []
+		total = len(scenes)
+		for i, scene in enumerate(scenes):
+			# Update status bar
+			log.progress(i/total)
 
-		common_attrabutes = ['title','details','url','date']
-		update_data.update( self.parse.get_common_atttrs( scraped_gallery, common_attrabutes ) )
+			matches = self.__match_scene_with_stashbox_data(scene, scraped_data)
 
-		if scraped_gallery.tags:
-			update_data['tag_ids'] = self.parse.get_tag_ids(scraped_gallery.tags)
+			if len(matches) <= 0:
+				log.info(f"FAILED to find match for scene id:{scene['id']}")
+				continue
 
-		if scraped_gallery.performers:
-			update_data['performer_ids'] = self.parse.get_performer_ids(scraped_gallery.performers)
+			if len(matches) > 1:
+				log.info(f"Multuple result for ({scene.get('id')}) skipping")
+				continue
 
-		if scraped_gallery.studio:
-			update_data['studio_id'] = self.parse.get_studio_id(scraped_gallery.studio)
+			m = matches[0]
 
-		gallery_tag_ids = [t.id for t in gallery.tags]
-		update_data['tag_ids'] = self.__merge_tags(gallery_tag_ids, update_data.get('tag_ids'))
+			log.info(f'MATCHED: UID:{m.hash} DUR:{m.duration}/{m.fingerprint_count}')
 
-		update_data = utils.clean_dict(update_data)
-		self.client.update_gallery(update_data)
+			if m.data.remote_site_id:
+				m.data['stash_ids'] = [{
+					'endpoint': stashbox.endpoint,
+					'stash_id': m.data.remote_site_id
+				}]
 
-	def __scrape_movies_with_url(self, movies):
-		return self.__scrape_with_url(
-			"movie",
-			movies,
-			self.client.scrape_movie_url,
-			self.__update_movie_with_scrape_data
-		)
-	def __update_movie_with_scrape_data(self, movie, scraped_movie):
-		movie_update = { 'id': movie.id }
-		movie_update.update( self.parse.get_movie_input(scraped_movie) )
-		self.client.update_movie(movie_update)
+			if m.data.performers:
+				for p in m.data.performers:
+					p.stash_ids = [{
+						'endpoint': stashbox.endpoint,
+						'stash_id': p.remote_site_id
+					}]
 
-	def __scrape_performers_with_fragment(self, performers, scraper_id):
-		return self.__scrape_with_fragment(
-			"performer",
-			scraper_id,
-			performers,
-			self.client.scrape_single_performer,
-			self.__update_performer_with_scrape_data
-		)
-	def __scrape_performers_with_url(self, performers):
-		return self.__scrape_with_url(
-			"performer",
-			performers,
-			self.client.scrape_performer_url,
-			self.__update_performer_with_scrape_data
-		)
-	def __update_performer_with_scrape_data(self, performer, scraped_performer):
-		performer_update = { 'id': performer.id }
-		performer_update.update( self.parse.get_performer_input(scraped_performer) )
+			# TODO Implement this option
+			if only_stash_ids:
+				pass
 
-		if scraped_performer.get("tags"):
-			performer_update["tag_ids"] = self.parse.get_tag_ids(scraped_performer.tags)
+			try:
+				self.__update_scene_with_scrape_data(scene, m.data)
+				scene_update_ids.append(scene.get('id'))
+			except Exception as e:
+				log.error(str(e))
 
-		performer_tag_ids = [t.id for t in performer.tags]
-		performer_update['tag_ids'] = self.__merge_tags(performer_tag_ids, performer_update.get('tag_ids',[]))
-
-		self.client.update_performer(performer_update)
-
-	def __merge_tags(self, old_tag_ids, new_tag_ids):
-		merged_tags = set()
-		ctrl_tag_ids = self.get_control_tag_ids()
-		merged_tags.update([t for t in old_tag_ids if t not in ctrl_tag_ids])
-		if new_tag_ids:
-			merged_tags.update(new_tag_ids)
-		return list(merged_tags)
-
-
-	def import_movie_urls(self):
-		def create_movie(movie, scraped_movie):
-			self.client.find_or_create_movie(scraped_movie, update_movie=True)
-
-		url_list = [ url for url in open('movie_urls.txt', 'r').readlines()]
-		url_list = list(set(url_list))
-		movie_urls = [ {'url':url } for url in url_list]
-		return self.__scrape_with_url(
-			"movie",
-			movie_urls,
-			self.client.scrape_movie_url,
-			create_movie
-		)
-
-if __name__ == '__main__':
-	main()
+		return scene_update_ids

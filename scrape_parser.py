@@ -1,156 +1,353 @@
-import datetime
-from urllib.parse import urlparse
+from enum import Enum
+from datetime import datetime
 
-import log
-import utils
 import config
+import utils.log as log
+import utils.tools as tools
+from utils.stash import StashInterface
+
+class Gender(Enum):
+	MALE="MALE"
+	FEMALE="FEMALE"
+	TRANSGENDER_MALE="TRANSGENDER_MALE"
+	TRANSGENDER_FEMALE="TRANSGENDER_FEMALE"
+	INTERSEX="INTERSEX"
+	NON_BINARY="NON_BINARY"
 
 class ScrapeParser:
 
-  def __init__(self, client):
-    self.client = client
+	def __init__(self, stash:StashInterface):
+		self.stash = stash
 
-  def __multi_item_list(self, __callback, items):
-    item_ids = [__callback(i) for i in items]
-    return [ item_id for item_id in item_ids if item_id ]
+	def detect(self, scraped_item):
 
-  def get_common_atttrs(self, scrape_data, attr_list):
-    common_dict = {}
-    for attr in attr_list:
-      if scrape_data.get(attr):
-        common_dict[attr] = scrape_data[attr]
-    return common_dict
+		if not scraped_item.get("__typename"):
+			return None
+		
+		if scraped_item["__typename"] == "ScrapedTag":
+			return self.tag_from_scape(scraped_item)
+		if scraped_item["__typename"] == "ScrapedGallery":
+			return self.gallery_from_scrape(scraped_item)
+		if scraped_item["__typename"] == "ScrapedStudio":
+			return self.studio_from_scrape(scraped_item)
+		if scraped_item["__typename"] == "ScrapedMovie":
+			return self.movie_from_scraped(scraped_item)
+		if scraped_item["__typename"] == "ScrapedPerformer":
+			return self.performer_from_scrape(scraped_item)
+		if scraped_item["__typename"] == "ScrapedScene":
+			return self.scene_from_scrape(scraped_item)
 
-  def get_studio_id(self, studio):
-    if studio.stored_id:
-      return studio.stored_id
+	def tag_from_scape(self, tag):
+		"""
+		v0.12.0-40
+		type ScrapedTag {
+			stored_id: ID
+			name: String!
+		}
 
-    studio.name = utils.caps_string(studio.name)
-    if studio.url:
-      studio.url = '{uri.scheme}://{uri.netloc}'.format(uri=urlparse(studio.url))
+		type TagUpdateInput {
+			id: ID!
+			name: String
+			aliases: [String!]
+			image: String
+			parent_ids: [ID!]
+			child_ids: [ID!]
+		}
+		"""
 
-    stash_studio = self.client.find_studio(studio, create_missing=config.create_missing_studios)
-    if stash_studio:
-      return stash_studio.id
+		if tag.get("stored_id"):
+			tag["id"] = tag["stored_id"]
+			del tag["stored_id"]
+		elif config.create_missing_tags:
+			return self.stash.create_tag(tag)
 
-  def get_tag_ids(self, tags):
-    return self.__multi_item_list(self.get_tag_id, tags)
-  def get_tag_id(self, tag):
-    if tag.stored_id:
-      return tag.stored_id
-    elif tag.name:
-      tag_name = utils.caps_string(tag.name)
-      return self.client.find_tag({'name':tag_name}, create_missing=config.create_missing_tags)
-      
-  def get_performer_ids(self, performers):
-    return self.__multi_item_list(self.get_performer_id, performers)
-  def get_performer_id(self, performer):
-    if performer.stored_id:
-      return performer.stored_id
-    elif performer.name:
-      log.debug(f'Stash could not match {performer.name} doing custom match')
-      # scraper could not match performer, try re-matching or create if enabled
-      performer.name = utils.caps_string(performer.name)
-      
-      stash_performer = self.client.find_performer( self.get_performer_input(performer), create_missing=config.create_missing_performers )
-      if stash_performer and stash_performer.get("id"):
-        return stash_performer.id
+		return tools.clean_dict(tag)
 
-  def get_performer_input(self, performer):
-        # Expecting to cast ScrapedPerformer to PerformerCreate/UpdateInput 
-        # NOTE
-        # 	ScrapedPerformer.gender: String => PerformerCreateInput.gender: GenderEnum
-        #   ScrapedPerformer.weight: String (kg?) => PerformerCreateInput.weight: Int (kg)
-        performer_data = {}
-        common_attrabutes = [
-          'name',
-          'url',
-          'birthdate',
-          'ethnicity',
-          'country',
-          'eye_color',
-          'height',
-          'measurements',
-          'fake_tits',
-          'career_length',
-          'tattoos',
-          'piercings',
-          'aliases',
-          'twitter',
-          'instagram',
-          'details',
-          'death_date',
-          'hair_color'
-        ]
-        for attr in common_attrabutes:
-          if performer.get(attr):
-            performer_data[attr] = performer[attr]
+	def gallery_from_scrape(self, gallery):
+		"""
+		v0.12.0-40
+		type ScrapedGallery {
+			title: String
+			details: String
+			url: String
+			date: String
+			studio: ScrapedStudio
+			tags: [ScrapedTag!]
+			performers: [ScrapedPerformer!]
+		}
 
-        if performer.get("image"):
-          performer_data["image"] = performer.image
-        if performer.get("images") and len(performer.images) > 0:
-          performer_data["image"] = performer.images[0]
+		type GalleryUpdateInput {
+			clientMutationId: String
+			id: ID!
+			title: String
+			url: String
+			date: String
+			details: String
+			rating: Int
+			organized: Boolean
+			scene_ids: [ID!]
+			studio_id: ID
+			tag_ids: [ID!]
+			performer_ids: [ID!]
+		}
+		"""
 
-        # cast String to Int, this assumes both values are the same unit and are just diffrent types
-        if performer.weight:
-          performer_data['weight'] = int(performer.weight)
+		if gallery.get("tags"):
+			gallery["tag_ids"] = [self.tag_from_scape(t)["id"] for t in gallery["tags"]]
+			del gallery["tags"]
+		if gallery.get("performers"):
+			gallery["performer_ids"] = [self.performer_from_scrape(p)["id"] for p in gallery["performers"]]
+			del gallery["performers"]
+			
+		return tools.clean_dict(gallery)
 
-        GENDER_ENUM = ["MALE","FEMALE","TRANSGENDER_MALE","TRANSGENDER_FEMALE", "INTERSEX", "NON_BINARY"]
+	def studio_from_scrape(self, studio):
+		"""
+		v0.12.0-40
+		type ScrapedStudio {
+			stored_id: ID
+			name: String!
+			url: String
+			image: String
+			remote_site_id: String
+		}
 
-        if performer.gender:
-          gender = performer.gender.replace(' ', '_').upper()
-          if gender in GENDER_ENUM:
-            performer_data['gender'] = gender
-          else:
-            log.warning(f'Could not map {performer.gender} to a GenderEnum for performer {performer.id}')
-        
-        return performer_data
+		type StudioUpdateInput {
+			id: ID!
+			name: String
+			url: String
+			parent_id: ID
+			image: String
+			stash_ids: [StashIDInput!]
+			rating: Int
+			details: String
+			aliases: [String!]
+		}
+		"""
+		# ignore field
+		if studio.get("remote_site_id"):
+			del studio["remote_site_id"]
+		
+		if studio.get("stored_id"):
+			studio["id"] = studio["stored_id"]
+			del studio["stored_id"]
+		elif config.create_missing_studios:
+			return self.stash.create_studio(studio)
 
-  def get_movie_ids(self, movies):
-    return self.__multi_item_list(self.get_movie_id, movies)
-  def get_movie_id(self, movie):
-    if movie.stored_id:
-      return {'movie_id':movie.stored_id, 'scene_index':None}
-    elif config.create_missing_movies and movie.name:
-      log.info(f'Create missing movie: "{movie.name}"')
-      try:
-        stash_movie = self.client.create_movie(self.get_movie_input(movie))
-        return {'movie_id':stash_movie.id, 'scene_index':None}
-      except Exception as e:
-        raise Exception(f'Movie create error {e}')
-  def get_movie_input(self, movie):
-    # NOTE
-    #  duration: String (HH:MM:SS) => duration: Int (Total Seconds)
-    #  studio: {ScrapedMovieStudio} => studio_id: ID
+		return tools.clean_dict(studio)
 
-    movie_data = {
-      'name': movie.name
-    }
-    common_attr = [
-      'name',
-      'aliases',
-      'date',
-      'rating',
-      'director',
-      'url',
-      'synopsis',
-      'front_image',
-      'back_image'
-    ]
-    movie_data.update( self.get_common_atttrs( movie, common_attr) )
-    
-    # here because durration value from scraped movie is string where update preferrs an int need to cast to an int (seconds)
-    if movie.get("duration"):
-      if movie.duration.count(':') == 0:
-        movie.duration = f'00:00:{movie.duration}'
-      if movie.duration.count(':') == 1:
-        movie.duration = f'00:{movie.duration}'
-      h,m,s = movie.duration.split(':')
-      durr = datetime.timedelta(hours=int(h),minutes=int(m),seconds=int(s)).total_seconds()
-      movie_data['duration'] = int(durr)
+	def movie_from_scraped(self, movie):
+		"""
+		v0.12.0-40
+		type ScrapedMovie {
+				stored_id: ID
+				name: String
+				aliases: String
+				duration: String
+				date: String
+				rating: String
+				director: String
+				url: String
+				synopsis: String
+				studio: ScrapedStudio
+				front_image: String
+				back_image: String
+		}
+		
+		type MovieUpdateInput {
+				id: ID!
+				name: String
+				aliases: String
+				duration: Int
+				date: String
+				rating: Int
+				studio_id: ID
+				director: String
+				synopsis: String
+				url: String
+				front_image: String
+				back_image: String
+		}
+		"""
+		# NOTE
+		#  duration: String (HH:MM:SS) => duration: Int (Total Seconds)
+		#  studio: {ScrapedMovieStudio} => studio_id: ID
+		
+		if movie.get("studio"):
+			movie["studio_id"] = self.studio_from_scrape(movie["studio"])["id"]
+			del movie["studio"]
 
-    if movie.studio:
-      movie_data['studio_id'] = self.get_studio_id(movie.studio)
+		# duration value from scraped movie is string, update expects an int
+		if movie.get("duration"):
+			if movie.duration.count(':') == 0:
+				movie.duration = f'00:00:{movie["duration"]}'
+			if movie.duration.count(':') == 1:
+				movie.duration = f'00:{movie["duration"]}'
+			h,m,s = movie.duration.split(':')
+			duration = datetime.timedelta(hours=int(h),minutes=int(m),seconds=int(s)).total_seconds()
+			movie['duration'] = int(duration)
 
-    movie_data = utils.clean_dict(movie_data)
-    return movie_data
+		return tools.clean_dict(movie)
+
+	def performer_from_scrape(self, performer):
+		"""
+		v0.12.0-40
+		type ScrapedPerformer {
+				stored_id: ID
+				name: String
+				gender: String
+				url: String
+				twitter: String
+				instagram: String
+				birthdate: String
+				ethnicity: String
+				country: String
+				eye_color: String
+				height: String
+				measurements: String
+				fake_tits: String
+				career_length: String
+				tattoos: String
+				piercings: String
+				aliases: String
+				tags: [ScrapedTag!]
+				images: [String!]
+				details: String
+				death_date: String
+				hair_color: String
+				weight: String
+				remote_site_id: String
+
+				# Deprecated: use images instead
+				image: String
+		}
+
+		type PerformerUpdateInput {
+				id: ID!
+				name: String
+				url: String
+				gender: GenderEnum
+				birthdate: String
+				ethnicity: String
+				country: String
+				eye_color: String
+				height: String
+				measurements: String
+				fake_tits: String
+				career_length: String
+				tattoos: String
+				piercings: String
+				aliases: String
+				twitter: String
+				instagram: String
+				favorite: Boolean
+				tag_ids: [ID!]
+				image: String
+				stash_ids: [StashIDInput!]
+				rating: Int
+				details: String
+				death_date: String
+				hair_color: String
+				weight: Int
+		}
+		"""
+		# NOTE
+		# 	ScrapedPerformer.gender: String => PerformerCreateInput.gender: GenderEnum
+		#   ScrapedPerformer.weight: String (kg?) => PerformerCreateInput.weight: Int (kg)
+
+		if performer.get("stored_id"):
+			performer["id"] = performer["stored_id"]
+			del performer["stored_id"]
+
+		if performer.get("images") and len(performer["images"]) > 0:
+			performer["image"] = performer["images"][0]
+			
+		if performer.get("tags"):
+			performer["tag_ids"] = [self.tag_from_scape(t)["id"] for t in performer.get("tags")]
+			del performer["tags"]
+
+		if performer.get("weight"):
+			try:
+				performer["weight"] = int(performer["weight"])
+			except:
+				del performer["weight"]
+				log.warning(f'Could not parse performer weight "{performer["weight"]}" it Int for {performer["name"]}')
+
+		if performer.get("gender"):
+			try:
+				performer["gender"] = Gender[performer["gender"]].value
+			except:
+				del performer["gender"]
+				log.warning(f'Cannot map performer Gender "{performer["gender"]}" for {performer["name"]}')
+
+		return tools.clean_dict(performer)
+
+	def scene_from_scrape(self, scene):
+		"""
+		v0.12.0-40
+		type ScrapedScene {
+			title: String
+			details: String
+			url: String
+			date: String
+			image: String
+			file: SceneFileType
+			studio: ScrapedStudio
+			tags: [ScrapedTag!]
+			performers: [ScrapedPerformer!]
+			movies: [ScrapedMovie!]
+			remote_site_id: String
+			duration: Int
+			fingerprints: [StashBoxFingerprint!]
+		}
+		type SceneUpdateInput {
+			clientMutationId: String
+			id: ID!
+			title: String
+			details: String
+			url: String
+			date: String
+			rating: Int
+			organized: Boolean
+			studio_id: ID
+			gallery_ids: [ID!]
+			performer_ids: [ID!]
+			movies: [SceneMovieInput!]
+			tag_ids: [ID!]
+			cover_image: String
+			stash_ids: [StashIDInput!]
+		}
+		"""
+
+		# ignore field
+		if scene.get("file"):
+			del scene["file"]
+		# ignore field
+		if scene.get("remote_site_id"):
+			del scene["remote_site_id"]
+		# ignore field
+		if scene.get("duration"):
+			del scene["duration"]
+		# ignore field
+		if scene.get("fingerprints"):
+			del scene["fingerprints"]
+
+		if scene.get("image"):
+			scene["cover_image"] = scene["image"]
+			del scene["image"]
+
+		if scene.get("studio"):
+			scene["studio"] = self.studio_from_scrape(scene["studio"])
+
+		if scene.get("tags"):
+			scene["tags_ids"] = [self.tag_from_scape(t)["id"] for t in scene["tags"]]
+			del scene["tags"]
+
+		if scene.get("performers"):
+			scene["performer_ids"] = [self.performer_from_scrape(p)["id"] for p in scene["performers"]]
+			del scene["performers"]
+
+		if scene.get("movies"):
+			scene["movies"] = [self.movie_from_scraped(m) for m in scene["movies"]]
+
+		return tools.clean_dict(scene)

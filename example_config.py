@@ -1,3 +1,4 @@
+from utils.stash_types import StashItem
 
 # Create missing performers/tags/studios/movies
 # Default: False (Prevent Stash from getting flooded with weird values)
@@ -6,30 +7,34 @@ create_missing_tags = False
 create_missing_studios = False
 create_missing_movies = False
 
-# url scrape config
-bulk_url_scrape_scenes = True
-bulk_url_scrape_galleries = True
-bulk_url_scrape_movies = True
-bulk_url_scrape_performers = False
-
-# fragment scrape config
-fragment_scrape_scenes = True
-fragment_scrape_galleries = True
-fragment_scrape_movies = True
-fragment_scrape_performers = False
+# url scrape config, comment out unwanted scrapes
+BULK_URL = [
+   StashItem.SCENE,
+   StashItem.GALLERY,
+   StashItem.MOVIE,
+   # StashItem.PERFORMER,
+]
+# fragment scrape config, comment out unwanted scrapes
+FRAGMENT_SCRAPE = [
+   StashItem.SCENE,
+   StashItem.GALLERY,
+   StashItem.MOVIE,
+   # StashItem.PERFORMER,
+]
 
 # stashbox scrape config
 stashbox_target = "stashdb.org"
 stashbox_submit_fingerprints = False
 
 # Delay between web requests (seconds)
-delay = 5.0
+EXTERNAL_WEB_REQUEST_DELAY = 5.0
 
+# tag to add to stash items that are not up to date with stashbox_target
+STASHBOX_UPDATE_AVAILABLE_TAG = "STASHBOX_UPDATE"
 # Name of the tag, that will be used for selecting scenes for bulk url scraping
-bulk_url_control_tag = "blk_scrape_url"
-
+BULK_URL_CONTROL_TAG = "blk_scrape_url"
 # stash box control tag
-bulk_stash_box_control_tag = "blk_scrape_stashbox"
+BULK_STASHBOX_CONTROL_TAG = "blk_scrape_stashbox"
 
 # Prefix of all fragment scraper tags
-scrape_with_prefix = "blk_scrape_"
+SCRAPE_WITH_PREFIX = "blk_scrape_"
