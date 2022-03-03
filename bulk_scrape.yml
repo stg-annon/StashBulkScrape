@@ -23,11 +23,11 @@ tasks:
     description: run fragment scrapers on scenes with relevant fragment tag
     defaultArgs:
       mode: fragment_scrape
-  - name: Stash-Box Update
-    description: apply a Tag to scenes where metadata is out of date with StashBox; If no tag is set in config this will attempt to automatically update the scene
+  - name: Stash-Box - Find Updates
+    description: apply a Tag to scenes where metadata is out of date compared to Stash-Box
     defaultArgs:
-      mode: stashbox_update
-  - name: Stash-Box TagUpdate
-    description: runs identify task on all scenes with control tag
+      mode: stashbox_find_updates
+  - name: Stash-Box - Identify
+    description: runs identify task on all scenes that were tagged with control tag
     defaultArgs:
-      mode: stashbox_identify_tag
+      mode: stashbox_identify_tagged

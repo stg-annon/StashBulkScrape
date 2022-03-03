@@ -23,10 +23,9 @@ def main():
 		scraper = bulk_scrape.ScrapeController(stash)
 
 		match mode_arg:
-			case "stashbox_update":
+			case "stashbox_find_updates":
 				stashbox_update.find_updates(stash, sbox)
-				# stashbox_update.update_scenes(stash)
-			case "stashbox_identify_tag":
+			case "stashbox_identify_tagged":
 				stashbox_update.update_scenes(stash)
 			case "create":
 				scraper.add_tags()
