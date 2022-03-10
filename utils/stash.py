@@ -39,11 +39,9 @@ class StashInterface:
 	def __init__(self, conn={}, fragments={}):
 		global log
 
-		if conn.get("Logger"):
-			log = conn.get("Logger")
-		else:
+		log = conn.get("logger", None)
+		if not log:
 			raise Exception("No Logger Provided")
-
 
 		self.port = conn.get('Port', 9999)
 		scheme = conn.get('Scheme','http')
@@ -156,6 +154,25 @@ class StashInterface:
 					log.info(f'matched "{search}" to "{alias}" ({item["id"]}) using alias')
 					item_matches[item["id"]] = item
 		return list(item_matches.values())
+
+	def stashbox_connection(self, sbox_name):
+		query = """
+		query configuration{
+			configuration {
+				general {
+					stashBoxes {
+						name
+						endpoint
+						api_key
+					} 
+				}
+			}
+		}"""
+		result = self.__callGraphQL(query)
+		for sbox_cfg in result["configuration"]["general"]["stashBoxes"]:
+			if sbox_cfg["name"] == sbox_name:
+				return sbox_cfg
+		return {}
 
 	def graphql_configuration(self):
 		query = """
