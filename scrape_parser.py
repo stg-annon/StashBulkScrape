@@ -1,5 +1,5 @@
 from enum import Enum
-from datetime import datetime
+import datetime
 
 import config
 import utils.log as log
@@ -31,7 +31,7 @@ class ScrapeParser:
 		if scraped_item["__typename"] == "ScrapedStudio":
 			return self.studio_from_scrape(scraped_item)
 		if scraped_item["__typename"] == "ScrapedMovie":
-			return self.movie_from_scraped(scraped_item)
+			return self.movie_from_scrape(scraped_item)
 		if scraped_item["__typename"] == "ScrapedPerformer":
 			return self.performer_from_scrape(scraped_item)
 		if scraped_item["__typename"] == "ScrapedScene":
@@ -139,7 +139,7 @@ class ScrapeParser:
 
 		return tools.clean_dict(studio)
 
-	def movie_from_scraped(self, movie):
+	def movie_from_scrape(self, movie):
 		"""
 		v0.12.0-40
 		type ScrapedMovie {
@@ -182,11 +182,11 @@ class ScrapeParser:
 
 		# duration value from scraped movie is string, update expects an int
 		if movie.get("duration"):
-			if movie.duration.count(':') == 0:
-				movie.duration = f'00:00:{movie["duration"]}'
-			if movie.duration.count(':') == 1:
-				movie.duration = f'00:{movie["duration"]}'
-			h,m,s = movie.duration.split(':')
+			if movie["duration"].count(':') == 0:
+				movie["duration"] = f'00:00:{movie["duration"]}'
+			if movie["duration"].count(':') == 1:
+				movie["duration"] = f'00:{movie["duration"]}'
+			h,m,s = movie["duration"].split(':')
 			duration = datetime.timedelta(hours=int(h),minutes=int(m),seconds=int(s)).total_seconds()
 			movie['duration'] = int(duration)
 
@@ -351,6 +351,6 @@ class ScrapeParser:
 			del scene["performers"]
 
 		if scene.get("movies"):
-			scene["movies"] = [self.movie_from_scraped(m) for m in scene["movies"]]
+			scene["movies"] = [self.movie_from_scrape(m) for m in scene["movies"]]
 
 		return tools.clean_dict(scene)
