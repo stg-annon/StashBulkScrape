@@ -98,6 +98,9 @@ class ScrapeParser:
 		if gallery.get("performers"):
 			gallery["performer_ids"] = [self.performer_from_scrape(p)["id"] for p in gallery["performers"]]
 			del gallery["performers"]
+		if gallery.get("studio"):
+			gallery["studio_id"] = self.studio_from_scrape(gallery["studio"]).get("id", None)
+			del gallery["studio"]
 			
 		return tools.clean_dict(gallery)
 
