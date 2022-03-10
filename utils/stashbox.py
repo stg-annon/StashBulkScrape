@@ -2,7 +2,7 @@ import re, sys, requests
 from tkinter import Variable
 from collections import defaultdict
 
-
+# ApiKey for StashDB Test user, READ ONLY, may be deactivated in the future
 STASHDB_TEST_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJhZTA1NmQ0ZC0wYjRmLTQzNmMtYmVhMy0zNjNjMTQ2MmZlNjMiLCJpYXQiOjE1ODYwNDAzOTUsInN1YiI6IkFQSUtleSJ9.5VENvrLtJXTGcdOhA0QC1SyPQ59padh1XiQRDQelzA4"
 
 class StashBoxInterface:
@@ -20,13 +20,12 @@ class StashBoxInterface:
 	def __init__(self, conn={}, fragments={}):
 		global log
 
-		if conn.get("Logger"):
-			log = conn.get("Logger")
-		else:
+		log = conn.get("logger", None)
+		if not log:
 			raise Exception("No Logger Provided")
 
-		self.endpoint = conn.get('Endpoint', "https://stashdb.org/graphql")
-		self.headers['ApiKey'] = conn.get('ApiKey', STASHDB_TEST_KEY)
+		self.endpoint = conn.get('endpoint', "https://stashdb.org/graphql")
+		self.headers['ApiKey'] = conn.get('api_key', STASHDB_TEST_KEY)
 		try:
 			# test query to check connection
 			r = self.__callGraphQL("query Me{me {name email}}")
