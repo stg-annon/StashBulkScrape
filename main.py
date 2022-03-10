@@ -1,6 +1,6 @@
 import sys, json
 
-
+import config
 import bulk_scrape
 import stashbox_update
 import utils.log as log
@@ -15,10 +15,16 @@ def main():
 	mode_arg = json_input['args']['mode']
 
 	try:
-		sbox = StashBoxInterface({"Logger": log})
-		stash_connection = json_input["server_connection"]
-		stash_connection["Logger"] = log
+		stash_connection = {"logger":log}
+		stash_connection.update(json_input["server_connection"])
 		stash = StashInterface(stash_connection)
+		
+		sbox_config = {"logger": log}
+		sbox_config.update(stash.stashbox_connection(config.stashbox_target))
+		sbox = StashBoxInterface(sbox_config)
+
+		if "endpoint" not in sbox_config:
+			log.warning(f'Could not source stash-box config for "{config.stashbox_target}"')
 
 		scraper = bulk_scrape.ScrapeController(stash)
 
