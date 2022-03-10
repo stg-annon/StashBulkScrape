@@ -99,6 +99,7 @@ def find_updates(stash:StashInterface, sbox:StashBoxInterface, scenes_per_page=6
                     scenes_with_update.append(scene["id"])
                     add_tracking_tag(stash, scene["id"], stashbox_update_tag_id)
             except:
+                log.warning(f"Issue checking scene {scene['id']}")
                 pass
             processed_scenes += 1
             log.progress(processed_scenes/total_scenes)
