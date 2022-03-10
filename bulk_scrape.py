@@ -275,7 +275,6 @@ class ScrapeController:
 				log.debug(f"Updated data for {scrape_type} {item.get('id')}")
 				count += 1
 			except Exception as e:
-				log.error(traceback.format_exc())
 				log.error(f"Fragment Scrape could not update {scrape_type} {item.get('id')}")
 				log.error(str(e))
 
@@ -326,7 +325,6 @@ class ScrapeController:
 				log.debug(f"Updated data for {scrape_type} {item.get('id')}")
 				count += 1
 			except Exception as e:
-				log.error(traceback.format_exc())
 				log.error(f"URL Scrape could not update {scrape_type} {item.get('id')}")
 				log.error(str(e))
 
@@ -366,10 +364,10 @@ class ScrapeController:
 	def __update_gallery_with_scrape_data(self, gallery, scraped_gallery):
 
 		gallery_data = self.parse.gallery_from_scrape(scraped_gallery)
-		gallery_data["id"] = gallery.get('id')
+		gallery_data['id'] = gallery.get('id')
 
-		gallery_tag_ids = [t.id for t in gallery.tags]
-		gallery_data['tag_ids'] = self.__merge_tags(gallery_tag_ids, gallery_data.get('tag_ids'))
+		gallery_tag_ids = [t['id'] for t in gallery['tags']]
+		gallery_data['tag_ids'] = tools.merge_tags(gallery_tag_ids, gallery_data.get('tag_ids'))
 
 		self.stash.update_gallery(gallery_data)
 	def __scrape_galleries_with_fragment(self, galleries, scraper_id):
@@ -410,7 +408,7 @@ class ScrapeController:
 			performer_update["tag_ids"] = self.parse.get_tag_ids(scraped_performer.tags)
 
 		performer_tag_ids = [t.id for t in performer.tags]
-		performer_update['tag_ids'] = self.__merge_tags(performer_tag_ids, performer_update.get('tag_ids',[]))
+		performer_update['tag_ids'] = tools.merge_tags(performer_tag_ids, performer_update.get('tag_ids',[]))
 
 		self.stash.update_performer(performer_update)
 	def __scrape_performers_with_fragment(self, performers, scraper_id):
