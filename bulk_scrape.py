@@ -388,7 +388,7 @@ class ScrapeController:
 	
 	# MOVIE
 	def __update_movie_with_scrape_data(self, movie, scraped_movie):
-		movie_update = self.parse.get_movie_input(scraped_movie)
+		movie_update = self.parse.movie_from_scrape(scraped_movie)
 		movie_update["id"] = movie["id"]
 		self.stash.update_movie(movie_update)
 	def __scrape_movies_with_url(self, movies):
