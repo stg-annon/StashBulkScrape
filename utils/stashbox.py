@@ -1,5 +1,4 @@
 import re, sys, requests
-from tkinter import Variable
 from collections import defaultdict
 
 # ApiKey for StashDB Test user, READ ONLY, may be deactivated in the future
