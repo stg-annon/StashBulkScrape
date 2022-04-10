@@ -3,12 +3,12 @@ from urllib.parse import urlparse
 from types import SimpleNamespace
 
 import config
-import utils.log as log
 import utils.tools as tools
-from utils.stash_types import StashItem
-from utils.stash import StashInterface, ScrapeType
 
-from scrape_parser import ScrapeParser
+import stashapi.log as log
+from stashapi.stashapp import StashInterface
+from stashapi.scrape_parser import ScrapeParser
+from stashapi.types import StashItem, ScrapeType
 
 class ScrapeController:
 
@@ -24,17 +24,22 @@ class ScrapeController:
 			log.warning("Using defaults for wrong values")
 
 		self.stash = stash
-		self.parse = ScrapeParser(stash)
+		self.parse = ScrapeParser(
+			stash,
+			logger=log,
+			create_missing_tags=config.create_missing_tags,
+			create_missing_studios=config.create_missing_studios
+		)
 
 		self.stash.reload_scrapers()
 
-		log.info('######## Bulk Scraper ########')
-		log.info(f'create_missing_performers: {config.create_missing_performers}')
-		log.info(f'create_missing_tags: {config.create_missing_tags}')
-		log.info(f'create_missing_studios: {config.create_missing_studios}')
-		log.info(f'create_missing_movies: {config.create_missing_movies}')
-		log.info(f'delay: {self.delay}')
-		log.info('##############################')
+		log.debug('############ Bulk Scraper ############')
+		log.debug(f'create_missing_performers: {config.create_missing_performers}')
+		log.debug(f'create_missing_tags: {config.create_missing_tags}')
+		log.debug(f'create_missing_studios: {config.create_missing_studios}')
+		log.debug(f'create_missing_movies: {config.create_missing_movies}')
+		log.debug(f'delay: {self.delay}')
+		log.debug('######################################')
 		
 	def wait(self):
 		if (datetime.datetime.now()-self.last_wait_time) < datetime.timedelta(seconds=self.delay):

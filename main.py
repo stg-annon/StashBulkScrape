@@ -1,12 +1,12 @@
 import sys, json
 
 import config
-import bulk_scrape
-import stashbox_update
-import utils.log as log
-from utils.stash import StashInterface
-from utils.stashbox import StashBoxInterface
+import utils.bulk_scrape as bulk_scrape
+import utils.stashbox_update as stashbox_update
 
+import stashapi.log as log
+from stashapi.stashapp import StashInterface
+from stashapi.stashbox import StashBoxInterface
 
 def main():
 	json_input = json.loads(sys.stdin.read())
@@ -20,7 +20,7 @@ def main():
 		stash = StashInterface(stash_connection)
 		
 		sbox_config = {"logger": log}
-		sbox_config.update(stash.stashbox_connection(config.stashbox_target))
+		sbox_config.update(stash.get_stashbox_connection(config.stashbox_target))
 		sbox = StashBoxInterface(sbox_config)
 
 		if "endpoint" not in sbox_config:

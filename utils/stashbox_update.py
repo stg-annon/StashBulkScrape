@@ -2,14 +2,12 @@
 import datetime, math
 
 import config
-from example_config import STASHBOX_UPDATE_AVAILABLE_TAG
-import utils.log as log
 from utils.tools import parse_timestamp
-from utils.stashbox import StashBoxInterface
-from utils.stash import StashInterface
 
-
-from utils.stash import BulkUpdateIdMode
+import stashapi.log as log
+from stashapi.stashbox import StashBoxInterface
+from stashapi.stashapp import StashInterface
+from stashapi.types import BulkUpdateIdMode
 
 def bulk_stashbox_scrape(self):
     stashbox = None

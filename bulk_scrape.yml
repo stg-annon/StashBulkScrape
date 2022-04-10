@@ -16,7 +16,7 @@ tasks:
     defaultArgs:
       mode: remove
   - name: URL Scrape
-    description: Scrape anything tagged with control tag and any scene that has a url but is missing its front cover image, ignores any that are disabled in config
+    description: Scrape anything tagged with control tag and any movie that has a url but is missing its front cover image, ignores any that are disabled in config
     defaultArgs:
       mode: url_scrape
   - name: Fragment Scrape
@@ -24,7 +24,7 @@ tasks:
     defaultArgs:
       mode: fragment_scrape
   - name: Stash-Box - Find Updates
-    description: apply a Tag to scenes where metadata is out of date compared to Stash-Box
+    description: apply a Tag to scenes where metadata is out of date compared to Stash-Box's last updated time
     defaultArgs:
       mode: stashbox_find_updates
   - name: Stash-Box - Identify
