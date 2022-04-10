@@ -32,7 +32,7 @@ def main():
 			case "stashbox_find_updates":
 				stashbox_update.find_updates(stash, sbox)
 			case "stashbox_identify_tagged":
-				stashbox_update.update_scenes(stash)
+				stashbox_update.update_scenes(stash, sbox)
 			case "create":
 				scraper.add_tags()
 			case "remove":

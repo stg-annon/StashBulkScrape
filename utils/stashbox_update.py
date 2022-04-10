@@ -191,12 +191,12 @@ def add_tracking_tag(stash:StashInterface, scene_id, tag_id):
             }
         })
 
-def update_scenes(stash:StashInterface, scene_ids=None):
+def update_scenes(stash:StashInterface, stashbox:StashBoxInterface, scene_ids=None):
 
     if scene_ids == None:
         scene_ids = find_tag_updates(stash)
     
-    stash.stashbox_identify_task(scene_ids)
+    stash.stashbox_identify_task(scene_ids, stashbox.url)
 
     if config.STASHBOX_UPDATE_AVAILABLE_TAG:
         stashbox_update_tag_id = stash.find_tag(config.STASHBOX_UPDATE_AVAILABLE_TAG, create=True).get("id", None)
