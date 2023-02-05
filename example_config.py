@@ -1,4 +1,4 @@
-from utils.stash_types import StashItem
+from stashapi.types import StashItem
 
 # Create missing performers/tags/studios/movies
 # Default: False (Prevent Stash from getting flooded with weird values)
