@@ -353,7 +353,7 @@ class ScrapeController:
 			"scenes",
 			scraper_id,
 			scenes,
-			self.stash.scrape_single_scene,
+			self.stash.scrape_scene,
 			self.__update_scene_with_scrape_data
 		)
 	def __scrape_scenes_with_url(self, scenes):
@@ -385,7 +385,7 @@ class ScrapeController:
 			"galleries",
 			scraper_id,
 			galleries,
-			self.stash.scrape_single_gallery,
+			self.stash.scrape_gallery,
 			self.__update_gallery_with_scrape_data
 		)
 	def __scrape_galleries_with_url(self, galleries):
@@ -430,7 +430,7 @@ class ScrapeController:
 			"performer",
 			scraper_id,
 			performers,
-			self.stash.scrape_single_performer,
+			self.stash.scrape_performer,
 			self.__update_performer_with_scrape_data
 		)
 	def __scrape_performers_with_url(self, performers):
