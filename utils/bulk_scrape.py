@@ -147,44 +147,41 @@ class ScrapeController:
 	# Scrapes Items enabled in config by fragment scraper
 	def bulk_fragment_scrape(self):
 		# Scrape Everything enabled in config
-
-		for scraper_id, stash_items in self.list_all_fragment_tags().items():
-
+		for tag_name, types_tuple in self.list_all_fragment_tags().items():
+			tag = self.stash.find_tag(tag_name)
+			if not tag:
+				log.warning(f"could not find tag '{tag_name}'")
+				continue
+			scraper_id, stash_items = types_tuple
 			if stash_items.get(StashItem.SCENE):
-				tag = self.stash.find_tag( stash_items.get(StashItem.SCENE) )
-				if tag:
-					scenes = self.stash.find_scenes(f={
-						"tags": {
-							"value": [tag["id"]],
-							"depth": 0,
-							"modifier": "INCLUDES"
-						}
-					})
-					self.__scrape_scenes_with_fragment(scenes, scraper_id)
+				scenes = self.stash.find_scenes(f={
+					"tags": {
+						"value": [tag["id"]],
+						"depth": 0,
+						"modifier": "INCLUDES"
+					}
+				}, fragment="id")
+				self.__scrape_scenes_with_fragment(scenes, scraper_id)
 
 			if stash_items.get(StashItem.GALLERY):
-				tag = self.stash.find_tag( stash_items.get(StashItem.GALLERY) )
-				if tag:
-					galleries = self.stash.find_galleries(f={
-						"tags": {
-							"value": [tag["id"]],
-							"depth": 0,
-							"modifier": "INCLUDES"
-						}
-					})
-					self.__scrape_galleries_with_fragment(galleries, scraper_id)
+				galleries = self.stash.find_galleries(f={
+					"tags": {
+						"value": [tag["id"]],
+						"depth": 0,
+						"modifier": "INCLUDES"
+					}
+				}, fragment="id")
+				self.__scrape_galleries_with_fragment(galleries, scraper_id)
 					
 			if stash_items.get(StashItem.PERFORMER):
-				tag = self.stash.find_tag( stash_items.get(StashItem.PERFORMER) )
-				if tag:
-					performers = self.stash.find_performers(f={
-						"tags": {
-							"value": [tag["id"]],
-							"depth": 0,
-							"modifier": "INCLUDES"
-						}
-					})
-					self.__scrape_performers_with_fragment(performers, scraper_id)
+				performers = self.stash.find_performers(f={
+					"tags": {
+						"value": [tag["id"]],
+						"depth": 0,
+						"modifier": "INCLUDES"
+					}
+				}, fragment="id")
+				self.__scrape_performers_with_fragment(performers, scraper_id)
 
 		return None
 	def bulk_stashbox_scrape(self):
@@ -230,17 +227,19 @@ class ScrapeController:
 
 	def list_all_fragment_tags(self):
 		fragment_tags = {}
-		for stash_item in config.FRAGMENT_SCRAPE:
-			for s in self.stash.list_item_scrapers(stash_item, ScrapeType.FRAGMENT):
-				if s in fragment_tags:
-					fragment_tags[s][stash_item] = f'{config.SCRAPE_WITH_PREFIX}{s}'
-				else:
-					fragment_tags[s] = {stash_item: f'{config.SCRAPE_WITH_PREFIX}{s}'}
+		for s in self.stash.list_scrapers(config.FRAGMENT_SCRAPE):
+			tag_id = f'{config.SCRAPE_WITH_PREFIX}{s["id"]}'
+			for content_type in config.FRAGMENT_SCRAPE:
+				type_spec = s[content_type.value.lower()]
+				if type_spec and ScrapeType.FRAGMENT.value in type_spec["supported_scrapes"]:
+					if tag_id in fragment_tags:
+						fragment_tags[tag_id][1].append(content_type)
+					else:
+						fragment_tags[tag_id] = (s["id"], [content_type])
 		return fragment_tags
 	def list_all_control_tags(self):
 		control_tags = [ config.BULK_URL_CONTROL_TAG, config.BULK_STASHBOX_CONTROL_TAG ]
-		for supported_types in self.list_all_fragment_tags().values():
-			control_tags.extend( supported_types.values() )
+		control_tags.extend(list(self.list_all_fragment_tags().keys()))
 		return control_tags
 	def get_control_tag_ids(self):
 		control_ids = list()
@@ -338,6 +337,7 @@ class ScrapeController:
 	# SCENE
 	def __update_scene_with_scrape_data(self, scene, scraped_scene):
 		update_data = self.parse.scene_from_scrape(scraped_scene)
+		scene = self.stash.find_scene(scene["id"], fragment="id tags { id }")
 		update_data["id"] = scene.get('id')
 
 		#TODO handle stash box ids
@@ -367,6 +367,7 @@ class ScrapeController:
 
 	# GALLERY
 	def __update_gallery_with_scrape_data(self, gallery, scraped_gallery):
+		gallery = self.stash.find_gallery(gallery["id"], fragment="id tags { id }")
 
 		gallery_data = self.parse.gallery_from_scrape(scraped_gallery)
 		gallery_data['id'] = gallery.get('id')
