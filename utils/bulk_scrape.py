@@ -48,14 +48,8 @@ class ScrapeController:
 
 	# adds control tags to stash
 	def add_tags(self):
-		tags = self.list_all_control_tags()
-		for tag_name in tags:
-			tag_id = self.stash.find_tag_id(tag_name)
-			if tag_id == None:
-				tag_id = self.stash.create_tag({'name':tag_name})
-				log.info(f"adding tag {tag_name}")
-			else:
-				log.debug(f"tag exists, {tag_name}")
+		for tag_name in self.list_all_control_tags():
+			self.stash.find_tag(tag_name, create=True)
 
 	# Removes control tags from stash
 	def remove_tags(self):
@@ -195,7 +189,7 @@ class ScrapeController:
 			log.error(f'Could not find a stash-box config for {config.stashbox_target}')
 			return None
 
-		tag_id = self.stash.find_tag_id( config.BULK_STASHBOX_CONTROL_TAG )
+		tag_id = self.stash.find_tag(config.BULK_STASHBOX_CONTROL_TAG, create=True)["id"]
 		scenes = self.stash.find_scenes(f={
 			"tags": {
 				"value": [tag_id],
@@ -244,10 +238,10 @@ class ScrapeController:
 	def get_control_tag_ids(self):
 		control_ids = list()
 		for tag_name in self.list_all_control_tags():
-			tag_id = self.stash.find_tag_id(tag_name)
-			if tag_id == None:
+			tag = self.stash.find_tag(tag_name)
+			if not tag:
 				continue
-			control_ids.append(tag_id)
+			control_ids.append(tag["id"])
 		return control_ids
 
 	def __scrape_with_fragment(self, scrape_type, scraper_id, items, __scrape, __update):
