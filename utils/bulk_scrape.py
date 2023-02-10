@@ -337,16 +337,21 @@ class ScrapeController:
 	# SCENE
 	def __update_scene_with_scrape_data(self, scene, scraped_scene):
 		update_data = self.parse.scene_from_scrape(scraped_scene)
-		scene = self.stash.find_scene(scene["id"], fragment="id tags { id }")
-		update_data["id"] = scene.get('id')
+		update_data["id"] = scene["id"]
 
 		#TODO handle stash box ids
 		# if scraped_scene.get('stash_ids'):
 		# 	update_data['stash_ids'] = scene.get('stash_ids').extend(scraped_scene.get('stash_ids'))
 
-		# merge old tags with new tags
-		scene_tag_ids = [t["id"] for t in scene.get("tags")]
-		update_data['tag_ids'] = tools.merge_tags(scene_tag_ids, update_data.get("tag_ids", []))
+		# Merge Tags
+		self.stash.update_scenes({
+			"ids": [scraped_scene["id"]],
+			"tag_ids": {
+				"ids": scraped_scene["tag_ids"],
+				"mode":"ADD"
+			}
+		})
+		del scraped_scene["tag_ids"]
 
 		self.stash.update_scene(update_data)
 	def __scrape_scenes_with_fragment(self, scenes, scraper_id):
@@ -367,13 +372,18 @@ class ScrapeController:
 
 	# GALLERY
 	def __update_gallery_with_scrape_data(self, gallery, scraped_gallery):
-		gallery = self.stash.find_gallery(gallery["id"], fragment="id tags { id }")
-
 		gallery_data = self.parse.gallery_from_scrape(scraped_gallery)
-		gallery_data['id'] = gallery.get('id')
+		gallery_data['id'] = gallery["id"]
 
-		gallery_tag_ids = [t['id'] for t in gallery['tags']]
-		gallery_data['tag_ids'] = tools.merge_tags(gallery_tag_ids, gallery_data.get('tag_ids'))
+		# Merge Tags
+		self.stash.update_galleries({
+			"ids": [gallery_data["id"]],
+			"tag_ids": {
+				"ids": gallery_data["tag_ids"],
+				"mode":"ADD"
+			}
+		})
+		del gallery_data["tag_ids"]
 
 		self.stash.update_gallery(gallery_data)
 	def __scrape_galleries_with_fragment(self, galleries, scraper_id):
@@ -407,14 +417,18 @@ class ScrapeController:
 	
 	# PERFORMER
 	def __update_performer_with_scrape_data(self, performer, scraped_performer):
-		performer_update = { 'id': performer.id }
-		performer_update.update( self.parse.get_performer_input(scraped_performer) )
-
-		if scraped_performer.get("tags"):
-			performer_update["tag_ids"] = self.parse.get_tag_ids(scraped_performer.tags)
-
-		performer_tag_ids = [t.id for t in performer.tags]
-		performer_update['tag_ids'] = tools.merge_tags(performer_tag_ids, performer_update.get('tag_ids',[]))
+		performer_update = self.parse.performer_from_scrape(scraped_performer)
+		performer_update["id"] = performer["id"]
+		
+		# Merge Tags
+		self.stash.update_performers({
+			"ids": [performer_update["id"]],
+			"tag_ids": {
+				"ids": performer_update["tag_ids"],
+				"mode":"ADD"
+			}
+		})
+		del performer_update["tag_ids"]
 
 		self.stash.update_performer(performer_update)
 	def __scrape_performers_with_fragment(self, performers, scraper_id):
