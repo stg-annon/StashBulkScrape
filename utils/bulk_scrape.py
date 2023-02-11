@@ -146,8 +146,8 @@ class ScrapeController:
 			if not tag:
 				log.warning(f"could not find tag '{tag_name}'")
 				continue
-			scraper_id, stash_items = types_tuple
-			if stash_items.get(StashItem.SCENE):
+			scraper_id, supported_content_types = types_tuple
+			if StashItem.SCENE in supported_content_types:
 				scenes = self.stash.find_scenes(f={
 					"tags": {
 						"value": [tag["id"]],
@@ -157,7 +157,7 @@ class ScrapeController:
 				}, fragment="id")
 				self.__scrape_scenes_with_fragment(scenes, scraper_id)
 
-			if stash_items.get(StashItem.GALLERY):
+			if StashItem.GALLERY in supported_content_types:
 				galleries = self.stash.find_galleries(f={
 					"tags": {
 						"value": [tag["id"]],
@@ -167,7 +167,7 @@ class ScrapeController:
 				}, fragment="id")
 				self.__scrape_galleries_with_fragment(galleries, scraper_id)
 					
-			if stash_items.get(StashItem.PERFORMER):
+			if StashItem.PERFORMER in supported_content_types:
 				performers = self.stash.find_performers(f={
 					"tags": {
 						"value": [tag["id"]],
