@@ -1,4 +1,4 @@
-import sys, time, json, datetime
+import sys, time, datetime, traceback
 from urllib.parse import urlparse
 from types import SimpleNamespace
 
@@ -264,7 +264,7 @@ class ScrapeController:
 				continue
 
 			# No data has been found for this scene
-			if not any(scraped_data.to_dict().values()):
+			if not any(scraped_data.values()):
 				log.info(f"Could not get data for {scrape_type} {item.get('id')}")
 				continue
 
@@ -275,6 +275,7 @@ class ScrapeController:
 			except Exception as e:
 				log.error(f"Fragment Scrape could not update {scrape_type} {item.get('id')}")
 				log.error(str(e))
+				log.error(traceback.format_exc())
 
 		return count
 	def __scrape_with_url(self, scrape_type, items, __scrape, __update):
@@ -330,8 +331,8 @@ class ScrapeController:
 
 	# SCENE
 	def __update_scene_with_scrape_data(self, scene, scraped_scene):
-		update_data = self.parse.scene_from_scrape(scraped_scene)
-		update_data["id"] = scene["id"]
+		scene_update = self.parse.scene_from_scrape(scraped_scene)
+		scene_update["id"] = scene["id"]
 
 		#TODO handle stash box ids
 		# if scraped_scene.get('stash_ids'):
@@ -339,15 +340,15 @@ class ScrapeController:
 
 		# Merge Tags
 		self.stash.update_scenes({
-			"ids": [scraped_scene["id"]],
+			"ids": [scene_update["id"]],
 			"tag_ids": {
-				"ids": scraped_scene["tag_ids"],
+				"ids": scene_update["tag_ids"],
 				"mode":"ADD"
 			}
 		})
-		del scraped_scene["tag_ids"]
+		del scene_update["tag_ids"]
 
-		self.stash.update_scene(update_data)
+		self.stash.update_scene(scene_update)
 	def __scrape_scenes_with_fragment(self, scenes, scraper_id):
 		return self.__scrape_with_fragment(
 			"scenes",
@@ -366,20 +367,20 @@ class ScrapeController:
 
 	# GALLERY
 	def __update_gallery_with_scrape_data(self, gallery, scraped_gallery):
-		gallery_data = self.parse.gallery_from_scrape(scraped_gallery)
-		gallery_data['id'] = gallery["id"]
+		gallery_update = self.parse.gallery_from_scrape(scraped_gallery)
+		gallery_update['id'] = gallery["id"]
 
 		# Merge Tags
 		self.stash.update_galleries({
-			"ids": [gallery_data["id"]],
+			"ids": [gallery_update["id"]],
 			"tag_ids": {
-				"ids": gallery_data["tag_ids"],
+				"ids": gallery_update["tag_ids"],
 				"mode":"ADD"
 			}
 		})
-		del gallery_data["tag_ids"]
+		del gallery_update["tag_ids"]
 
-		self.stash.update_gallery(gallery_data)
+		self.stash.update_gallery(gallery_update)
 	def __scrape_galleries_with_fragment(self, galleries, scraper_id):
 		return self.__scrape_with_fragment(
 			"galleries",
