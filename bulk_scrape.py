@@ -178,51 +178,10 @@ class ScrapeController:
 				self.__scrape_performers_with_fragment(performers, scraper_id)
 
 		return None
-	def bulk_stashbox_scrape(self):
-		stashbox = None
-		for i, sbox in enumerate(stash.list_stashboxes()):
-			if config.stashbox_target in sbox.endpoint:
-				stashbox = sbox
-				stashbox.index = i
-
-		if not stashbox:
-			log.error(f'Could not find a stash-box config for {config.stashbox_target}')
-			return None
-
-		tag_id = stash.find_tag(config.BULK_STASHBOX_CONTROL_TAG, create=True)["id"]
-		scenes = stash.find_scenes(f={
-			"tags": {
-				"value": [tag_id],
-				"depth": 0,
-				"modifier": "INCLUDES"
-			}
-		})
-
-		log.info(f'Scraping {len(scenes)} items from stashbox')
-
-		scene_ids = [s['id'] for s in scenes if s.get('id')]
-		scraped_data  = stash.stashbox_scene_scraper(scene_ids, stashbox_index=stashbox.index)
-
-		log.info(f'found {len(scraped_data)} results from stashbox')
-
-		updated_scene_ids = self.__update_scenes_with_stashbox_data(scenes, scraped_data, stashbox)
-
-		log.info(f'Scraped {len(updated_scene_ids)} scenes from stashbox')
-
-		if len(updated_scene_ids) > 0 and config.stashbox_submit_fingerprints:
-			log.info(f'Submitting scene fingerprints to stashbox')
-			success = stash.stashbox_submit_scene_fingerprints(updated_scene_ids, stashbox_index=stashbox.index)
-			if success:
-				log.info(f'Submission Successful')
-			else:
-				log.info(f'Failed to submit fingerprint')
-
-		return None
-
 	def list_all_fragment_tags(self):
 		fragment_tags = {}
 		for s in stash.list_scrapers(config.FRAGMENT_SCRAPE):
-			tag_id = f'{config.SCRAPE_WITH_PREFIX}{s["id"]}'
+			tag_id = f'{config.FRAGMENT_SCRAPE_PREFIX}{s["id"]}'
 			for content_type in config.FRAGMENT_SCRAPE:
 				type_spec = s[content_type.value.lower()]
 				if type_spec and ScrapeType.FRAGMENT.value in type_spec["supported_scrapes"]:
@@ -232,7 +191,7 @@ class ScrapeController:
 						fragment_tags[tag_id] = (s["id"], [content_type])
 		return fragment_tags
 	def list_all_control_tags(self):
-		control_tags = [ config.BULK_URL_CONTROL_TAG, config.BULK_STASHBOX_CONTROL_TAG ]
+		control_tags = [ config.BULK_URL_CONTROL_TAG ]
 		control_tags.extend(list(self.list_all_fragment_tags().keys()))
 		return control_tags
 	def get_control_tag_ids(self):
@@ -295,21 +254,26 @@ class ScrapeController:
 				log.debug(f'{scrape_type} of type {type(item)} could not be used ')
 				continue
 
-			if item.get('url') is None or item.get('url') == "":
+			item_url = None
+			if item.get('url') and item.get('url') != "":
+				item_url = item['url']
+			elif item.get('urls') and item.get('urls') != []:
+				item_url = item['urls'][0]
+			if not item_url:
 				log.info(f"{scrape_type} {item.get('id')} is missing url")
 				continue
-			netloc = urlparse(item.get("url")).netloc
+			netloc = urlparse(item_url).netloc
 			if netloc in missing_scrapers and netloc not in working_scrapers:
 				continue
 			
 			self.wait()
 			log.info(f"Scraping URL for {scrape_type} {item.get('id')}")
 
-			scraped_data = __scrape(item.get('url'))
+			scraped_data = __scrape(item_url)
 
 			# If result is null, add url to missing_scrapers
 			if scraped_data is None:
-				log.warning(f"Missing scraper for {urlparse(item.get('url')).netloc}")
+				log.warning(f"Missing scraper for {urlparse(item_url).netloc}")
 				missing_scrapers.add(netloc)
 				continue
 			else:
@@ -441,91 +405,3 @@ class ScrapeController:
 			stash.scrape_performer_url,
 			self.__update_performer_with_scrape_data
 		)
-
-	def __match_scene_with_stashbox_data(self, scene, stashbox_data):
-		matches = []
-		for scene_data in stashbox_data:
-
-			id_match = SimpleNamespace()
-
-			id_match.hash = None
-			id_match.oshash = False
-			id_match.phash = False
-			id_match.checksum = False
-			id_match.duration = 0
-			id_match.fingerprint_count = len(scene_data.get('fingerprints'))
-			id_match.data = scene_data
-
-			for fingerprint in scene_data.get('fingerprints'):
-				
-				if scene.get('checksum') == fingerprint.get('checksum'):
-					id_match.checksum = True
-					id_match.hash = "checksum"
-				if scene.get('phash') == fingerprint.get('hash'):
-					id_match.phash = True
-					id_match.hash = "phash"
-				if scene.get('oshash') == fingerprint.get('hash'):
-					id_match.oshash = True
-					id_match.hash = "oshash"
-
-				if not scene.get('file').get('duration') or not fingerprint.get('duration'):
-					continue
-
-				durr_diff = abs(scene.get('file').get('duration') - fingerprint.get('duration'))
-				if durr_diff <= config.stashbox_allowed_durr_diff:
-					id_match.duration += 1
-
-			has_hash = (id_match.oshash or id_match.phash or id_match.checksum)
-			durration_majority_match = (id_match.duration / id_match.fingerprint_count >= config.stashbox_match_percent)
-			minimum_required_fingerprints = (id_match.fingerprint_count >= config.stashbox_min_fingerprint_count)
-			
-			if has_hash and durration_majority_match and minimum_required_fingerprints:
-				matches.append(id_match)
-
-		return matches
-	def __update_scenes_with_stashbox_data(self, scenes, scraped_data, stashbox, only_stash_ids=False):
-
-		scene_update_ids = []
-		total = len(scenes)
-		for i, scene in enumerate(scenes):
-			# Update status bar
-			log.progress(i/total)
-
-			matches = self.__match_scene_with_stashbox_data(scene, scraped_data)
-
-			if len(matches) <= 0:
-				log.info(f"FAILED to find match for scene id:{scene['id']}")
-				continue
-
-			if len(matches) > 1:
-				log.info(f"Multuple result for ({scene.get('id')}) skipping")
-				continue
-
-			m = matches[0]
-
-			log.info(f'MATCHED: UID:{m.hash} DUR:{m.duration}/{m.fingerprint_count}')
-
-			if m.data.remote_site_id:
-				m.data['stash_ids'] = [{
-					'endpoint': stashbox.endpoint,
-					'stash_id': m.data.remote_site_id
-				}]
-
-			if m.data.performers:
-				for p in m.data.performers:
-					p.stash_ids = [{
-						'endpoint': stashbox.endpoint,
-						'stash_id': p.remote_site_id
-					}]
-
-			# TODO Implement this option
-			if only_stash_ids:
-				pass
-
-			try:
-				self.__update_scene_with_scrape_data(scene, m.data)
-				scene_update_ids.append(scene.get('id'))
-			except Exception as e:
-				log.error(str(e))
-
-		return scene_update_ids
