@@ -1,21 +1,24 @@
-import sys, time, datetime, traceback
+import sys, time, traceback
 from urllib.parse import urlparse
 from types import SimpleNamespace
 
+import datetime as dt
+
 import config
-import utils.tools as tools
 
 import stashapi.log as log
 from stashapi.stashapp import StashInterface
 from stashapi.scrape_parser import ScrapeParser
-from stashapi.types import StashItem, ScrapeType
+from stashapi.stash_types import StashItem, ScrapeType
 
 class ScrapeController:
 
-	def __init__(self, stash:StashInterface):
+	def __init__(self, stash_in:StashInterface):
+		global stash
+
 		try:
 			self.delay = float(config.EXTERNAL_WEB_REQUEST_DELAY)
-			self.last_wait_time = datetime.datetime.now()
+			self.last_wait_time = dt.datetime.now()
 		except AttributeError as e:
 			log.warning(e)
 			log.warning("Using defaults for missing config values")
@@ -23,7 +26,7 @@ class ScrapeController:
 			log.warning(e)
 			log.warning("Using defaults for wrong values")
 
-		self.stash = stash
+		stash = stash_in
 		self.parse = ScrapeParser(
 			stash,
 			logger=log,
@@ -31,7 +34,7 @@ class ScrapeController:
 			create_missing_studios=config.create_missing_studios
 		)
 
-		self.stash.reload_scrapers()
+		stash.reload_scrapers()
 
 		log.debug('############ Bulk Scraper ############')
 		log.debug(f'create_missing_performers: {config.create_missing_performers}')
@@ -42,25 +45,25 @@ class ScrapeController:
 		log.debug('######################################')
 		
 	def wait(self):
-		if (datetime.datetime.now()-self.last_wait_time) < datetime.timedelta(seconds=self.delay):
+		if (dt.datetime.now()-self.last_wait_time) < dt.timedelta(seconds=self.delay):
 			time.sleep(self.delay)
-			self.last_wait_time = datetime.datetime.now()
+			self.last_wait_time = dt.datetime.now()
 
 	# adds control tags to stash
 	def add_tags(self):
 		for tag_name in self.list_all_control_tags():
-			self.stash.find_tag(tag_name, create=True)
+			stash.find_tag(tag_name, create=True)
 
 	# Removes control tags from stash
 	def remove_tags(self):
 		tags = self.list_all_control_tags()
 		for tag_name in tags:
-			tag = self.stash.find_tag(tag_name)
+			tag = stash.find_tag(tag_name)
 			if tag == None:
 				log.debug("Tag does not exist. Nothing to remove")
 				continue
 			log.info(f'Destroying tag {tag["name"]}')
-			self.stash.destroy_tag(tag["id"])
+			stash.destroy_tag(tag["id"])
 	
 	# Scrapes Items enabled in config by url scraper
 	def bulk_url_scrape(self):
@@ -68,13 +71,10 @@ class ScrapeController:
 		log.info("Progress bar will reset for each item type (scene, movie, ect.)")
 
 		# Scrape Everything enabled in config
-		tag = self.stash.find_tag(config.BULK_URL_CONTROL_TAG)
-		if tag is None:
-			sys.exit(f'Tag "{config.BULK_URL_CONTROL_TAG}" does not exist. Please create it via the "Create scrape tags" task')
-		tag_id = tag["id"]
+		tag_id = stash.find_tag(config.BULK_URL_CONTROL_TAG, create=True).get("id")
 
 		if StashItem.SCENE in config.BULK_URL:
-			scenes = self.stash.find_scenes(f={
+			scenes = stash.find_scenes(f={
 				"tags": {
 					"value": [tag_id],
 					"depth": 0,
@@ -92,7 +92,7 @@ class ScrapeController:
 			log.info('##############################')
 
 		if StashItem.GALLERY in config.BULK_URL:
-			galleries = self.stash.find_galleries(f={
+			galleries = stash.find_galleries(f={
 				"tags": {
 					"value": [tag_id],
 					"depth": 0,
@@ -110,7 +110,7 @@ class ScrapeController:
 			log.info('##############################')
 
 		if StashItem.PERFORMER in config.BULK_URL:
-			performers = self.stash.find_performers(f={
+			performers = stash.find_performers(f={
 				"tags": {
 					"value": [tag_id],
 					"depth": 0,
@@ -128,7 +128,7 @@ class ScrapeController:
 			log.info('##############################')
 
 		if StashItem.MOVIE in config.BULK_URL:
-			movies = self.stash.find_movies(f={
+			movies = stash.find_movies(f={
 				"is_missing": "front_image",
 				"url": {
 					"value": "",
@@ -142,13 +142,13 @@ class ScrapeController:
 	def bulk_fragment_scrape(self):
 		# Scrape Everything enabled in config
 		for tag_name, types_tuple in self.list_all_fragment_tags().items():
-			tag = self.stash.find_tag(tag_name)
+			tag = stash.find_tag(tag_name)
 			if not tag:
 				log.warning(f"could not find tag '{tag_name}'")
 				continue
 			scraper_id, supported_content_types = types_tuple
 			if StashItem.SCENE in supported_content_types:
-				scenes = self.stash.find_scenes(f={
+				scenes = stash.find_scenes(f={
 					"tags": {
 						"value": [tag["id"]],
 						"depth": 0,
@@ -158,7 +158,7 @@ class ScrapeController:
 				self.__scrape_scenes_with_fragment(scenes, scraper_id)
 
 			if StashItem.GALLERY in supported_content_types:
-				galleries = self.stash.find_galleries(f={
+				galleries = stash.find_galleries(f={
 					"tags": {
 						"value": [tag["id"]],
 						"depth": 0,
@@ -168,7 +168,7 @@ class ScrapeController:
 				self.__scrape_galleries_with_fragment(galleries, scraper_id)
 					
 			if StashItem.PERFORMER in supported_content_types:
-				performers = self.stash.find_performers(f={
+				performers = stash.find_performers(f={
 					"tags": {
 						"value": [tag["id"]],
 						"depth": 0,
@@ -180,7 +180,7 @@ class ScrapeController:
 		return None
 	def bulk_stashbox_scrape(self):
 		stashbox = None
-		for i, sbox in enumerate(self.stash.list_stashboxes()):
+		for i, sbox in enumerate(stash.list_stashboxes()):
 			if config.stashbox_target in sbox.endpoint:
 				stashbox = sbox
 				stashbox.index = i
@@ -189,8 +189,8 @@ class ScrapeController:
 			log.error(f'Could not find a stash-box config for {config.stashbox_target}')
 			return None
 
-		tag_id = self.stash.find_tag(config.BULK_STASHBOX_CONTROL_TAG, create=True)["id"]
-		scenes = self.stash.find_scenes(f={
+		tag_id = stash.find_tag(config.BULK_STASHBOX_CONTROL_TAG, create=True)["id"]
+		scenes = stash.find_scenes(f={
 			"tags": {
 				"value": [tag_id],
 				"depth": 0,
@@ -201,7 +201,7 @@ class ScrapeController:
 		log.info(f'Scraping {len(scenes)} items from stashbox')
 
 		scene_ids = [s['id'] for s in scenes if s.get('id')]
-		scraped_data  = self.stash.stashbox_scene_scraper(scene_ids, stashbox_index=stashbox.index)
+		scraped_data  = stash.stashbox_scene_scraper(scene_ids, stashbox_index=stashbox.index)
 
 		log.info(f'found {len(scraped_data)} results from stashbox')
 
@@ -211,7 +211,7 @@ class ScrapeController:
 
 		if len(updated_scene_ids) > 0 and config.stashbox_submit_fingerprints:
 			log.info(f'Submitting scene fingerprints to stashbox')
-			success = self.stash.stashbox_submit_scene_fingerprints(updated_scene_ids, stashbox_index=stashbox.index)
+			success = stash.stashbox_submit_scene_fingerprints(updated_scene_ids, stashbox_index=stashbox.index)
 			if success:
 				log.info(f'Submission Successful')
 			else:
@@ -221,7 +221,7 @@ class ScrapeController:
 
 	def list_all_fragment_tags(self):
 		fragment_tags = {}
-		for s in self.stash.list_scrapers(config.FRAGMENT_SCRAPE):
+		for s in stash.list_scrapers(config.FRAGMENT_SCRAPE):
 			tag_id = f'{config.SCRAPE_WITH_PREFIX}{s["id"]}'
 			for content_type in config.FRAGMENT_SCRAPE:
 				type_spec = s[content_type.value.lower()]
@@ -238,7 +238,7 @@ class ScrapeController:
 	def get_control_tag_ids(self):
 		control_ids = list()
 		for tag_name in self.list_all_control_tags():
-			tag = self.stash.find_tag(tag_name)
+			tag = stash.find_tag(tag_name)
 			if not tag:
 				continue
 			control_ids.append(tag["id"])
@@ -339,7 +339,7 @@ class ScrapeController:
 		# 	update_data['stash_ids'] = scene.get('stash_ids').extend(scraped_scene.get('stash_ids'))
 
 		# Merge Tags
-		self.stash.update_scenes({
+		stash.update_scenes({
 			"ids": [scene_update["id"]],
 			"tag_ids": {
 				"ids": scene_update["tag_ids"],
@@ -348,20 +348,20 @@ class ScrapeController:
 		})
 		del scene_update["tag_ids"]
 
-		self.stash.update_scene(scene_update)
+		stash.update_scene(scene_update)
 	def __scrape_scenes_with_fragment(self, scenes, scraper_id):
 		return self.__scrape_with_fragment(
 			"scenes",
 			scraper_id,
 			scenes,
-			self.stash.scrape_scene,
+			stash.scrape_scene,
 			self.__update_scene_with_scrape_data
 		)
 	def __scrape_scenes_with_url(self, scenes):
 		return self.__scrape_with_url(
 			"scene",
 			scenes,
-			self.stash.scrape_scene_url,
+			stash.scrape_scene_url,
 			self.__update_scene_with_scrape_data
 		)
 
@@ -371,7 +371,7 @@ class ScrapeController:
 		gallery_update['id'] = gallery["id"]
 
 		# Merge Tags
-		self.stash.update_galleries({
+		stash.update_galleries({
 			"ids": [gallery_update["id"]],
 			"tag_ids": {
 				"ids": gallery_update["tag_ids"],
@@ -380,20 +380,20 @@ class ScrapeController:
 		})
 		del gallery_update["tag_ids"]
 
-		self.stash.update_gallery(gallery_update)
+		stash.update_gallery(gallery_update)
 	def __scrape_galleries_with_fragment(self, galleries, scraper_id):
 		return self.__scrape_with_fragment(
 			"galleries",
 			scraper_id,
 			galleries,
-			self.stash.scrape_gallery,
+			stash.scrape_gallery,
 			self.__update_gallery_with_scrape_data
 		)
 	def __scrape_galleries_with_url(self, galleries):
 		return self.__scrape_with_url(
 			"gallery",
 			galleries,
-			self.stash.scrape_gallery_url,
+			stash.scrape_gallery_url,
 			self.__update_gallery_with_scrape_data
 		)
 	
@@ -401,12 +401,12 @@ class ScrapeController:
 	def __update_movie_with_scrape_data(self, movie, scraped_movie):
 		movie_update = self.parse.movie_from_scrape(scraped_movie)
 		movie_update["id"] = movie["id"]
-		self.stash.update_movie(movie_update)
+		stash.update_movie(movie_update)
 	def __scrape_movies_with_url(self, movies):
 		return self.__scrape_with_url(
 			"movie",
 			movies,
-			self.stash.scrape_movie_url,
+			stash.scrape_movie_url,
 			self.__update_movie_with_scrape_data
 		)
 	
@@ -416,7 +416,7 @@ class ScrapeController:
 		performer_update["id"] = performer["id"]
 		
 		# Merge Tags
-		self.stash.update_performers({
+		stash.update_performers({
 			"ids": [performer_update["id"]],
 			"tag_ids": {
 				"ids": performer_update["tag_ids"],
@@ -425,20 +425,20 @@ class ScrapeController:
 		})
 		del performer_update["tag_ids"]
 
-		self.stash.update_performer(performer_update)
+		stash.update_performer(performer_update)
 	def __scrape_performers_with_fragment(self, performers, scraper_id):
 		return self.__scrape_with_fragment(
 			"performer",
 			scraper_id,
 			performers,
-			self.stash.scrape_performer,
+			stash.scrape_performer,
 			self.__update_performer_with_scrape_data
 		)
 	def __scrape_performers_with_url(self, performers):
 		return self.__scrape_with_url(
 			"performer",
 			performers,
-			self.stash.scrape_performer_url,
+			stash.scrape_performer_url,
 			self.__update_performer_with_scrape_data
 		)
 

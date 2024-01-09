@@ -10,11 +10,11 @@ tasks:
   - name: Create Scrape Tags
     description: Create tags used by plugin, ie "blk_scrape_tpdb"
     defaultArgs:
-      mode: create
+      mode: create_tags
   - name: Remove Scrape Tags
     description: Removes all plugin related tags from scenes and deletes the tags.
     defaultArgs:
-      mode: remove
+      mode: remove_tags
   - name: URL Scrape
     description: Scrape anything tagged with control tag and any movie that has a url but is missing its front cover image, ignores any that are disabled in config
     defaultArgs:
